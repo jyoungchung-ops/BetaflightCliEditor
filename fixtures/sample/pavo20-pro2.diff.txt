@@ -56,7 +56,6 @@ set osd_craft_name_pos = 2102
 set osd_warnings_pos = 2483
 set osd_avg_cell_voltage_pos = 3117
 set osd_displayport_device = MSP
-set displayport_msp_serial = 2
 set vcd_video_system = HD
 set craft_name = Pavo20 Pro2
 set pilot_name = Chloe

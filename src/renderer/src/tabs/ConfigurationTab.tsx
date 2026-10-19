@@ -83,6 +83,7 @@ export function ConfigurationTab() {
           <Field label="자이로 업데이트 주기" value={gyroRate ? `${gyroRate / 1000} kHz` : undefined} hint="status 기준" />
           <MasterField name="pid_process_denom" label="PID 루프 분주" hint={pidLoop ? `PID 루프 ${pidLoop}` : undefined} />
           <MasterField name="gyro_to_use" label="사용 자이로" />
+          <MasterField name="gyro_enabled_bitmask" label="사용 자이로 (비트마스크)" hint="2025.12+" />
           <MasterField name="acc_hardware" label="가속도계" />
           <MasterField name="baro_hardware" label="기압계" />
           <MasterField name="mag_hardware" label="지자기계" />
@@ -114,6 +115,9 @@ export function ConfigurationTab() {
           <MasterField name="gyro_1_align_pitch" label="자이로 1 피치" unit="°" format={deci} />
           <MasterField name="gyro_1_align_yaw" label="자이로 1 요" unit="°" format={deci} />
           <MasterField name="gyro_2_sensor_align" label="자이로 2 정렬" />
+          {m('gyro_1_sensor_align') === undefined && m('align_board_yaw') !== undefined && (
+            <p className="muted small">이 펌웨어(2025.12+)는 자이로 정렬을 set 값으로 내보내지 않습니다.</p>
+          )}
         </Panel>
 
         <Panel title="아밍·개인화">

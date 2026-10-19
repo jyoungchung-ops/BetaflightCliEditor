@@ -2,8 +2,14 @@
 // 값은 문자열 그대로 두고 화면에서 해석한다 — 펌웨어 버전마다 키·열거값이 달라서다.
 
 export interface SerialPortCfg {
-  /** 0~9 = UART1~10, 20 = USB VCP, 30+ = 소프트시리얼 */
+  /**
+   * 펌웨어 포트 식별자.
+   * 4.5: 0~9 = UART1~10, 20 = USB VCP, 30+ = 소프트시리얼, 40 = LPUART1
+   * 2025.12+: 20 = VCP, 30+ = SOFT, 40 = LPUART1, 50 = UART0, 51~60 = UART1~10 (CLI에는 이름으로 나옴)
+   */
   id: number
+  /** 2025.12+ serial 줄의 포트 이름 (VCP, UART1, SOFT1, LPUART1 ...) */
+  name?: string
   /** serialPortFunction 비트마스크 */
   functionMask: number
   mspBaud: number

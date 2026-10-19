@@ -3,6 +3,7 @@
   "board": "BETAFPVF405",
   "target": "STM32F405",
   "version": "4.5.2",
+  "firmware": "4.5",
   "activePidProfile": 1,
   "activeRateProfile": 1,
   "changedKeys": [
@@ -34,7 +35,6 @@
     "master.osd_warnings_pos",
     "master.osd_avg_cell_voltage_pos",
     "master.osd_displayport_device",
-    "master.displayport_msp_serial",
     "master.vcd_video_system",
     "master.craft_name",
     "master.pilot_name",

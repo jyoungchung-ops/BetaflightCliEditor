@@ -82,6 +82,21 @@ export function parseStatus(text: string): StatusInfo {
 const nums = (tokens: string[]): number[] => tokens.map(Number)
 const allNumeric = (tokens: string[]): boolean => tokens.length > 0 && tokens.every((t) => /^-?\d+(\.\d+)?$/.test(t))
 
+/**
+ * 2025.12+ serial 포트 이름 → 펌웨어 식별자 (io/serial.h serialPortIdentifier_e, io/serial.c serialPortNames)
+ * VCP=20, SOFT1~=30~, LPUART1=40, UART0=50, UART1~10=51~60
+ */
+export function serialIdFromName(name: string): number | null {
+  const n = name.toUpperCase()
+  if (n === 'VCP') return 20
+  let m: RegExpExecArray | null
+  if ((m = /^UART(\d+)$/.exec(n))) return 50 + Number(m[1])
+  if ((m = /^SOFT(\d+)$/.exec(n))) return 29 + Number(m[1])
+  if ((m = /^LPUART(\d+)$/.exec(n))) return 39 + Number(m[1])
+  if ((m = /^PIOUART(\d+)$/.exec(n))) return 70 + Number(m[1])
+  return null
+}
+
 /** 명령 중 무시하는 것 (설정 값이 아님) */
 const IGNORED = new Set(['batch', 'defaults', 'save', 'exit', 'diff', 'dump', 'version', 'status', 'get'])
 
@@ -201,10 +216,14 @@ export function parseCli(text: string): ParsedCli {
         continue
       }
       case 'serial': {
-        if (t.length < 6 || !allNumeric(t)) break
-        const [id, functionMask, mspBaud, gpsBaud, telemetryBaud, blackboxBaud] = nums(t)
-        p.serial.push({ id, functionMask, mspBaud, gpsBaud, telemetryBaud, blackboxBaud })
-        key(`serial.${id}`)
+        // 4.5: serial 1 64 115200 ...   2025.12+: serial UART2 64 115200 ...
+        if (t.length < 6 || !allNumeric(t.slice(1))) break
+        const [functionMask, mspBaud, gpsBaud, telemetryBaud, blackboxBaud] = nums(t.slice(1))
+        const named = !allNumeric([t[0]])
+        const id = named ? serialIdFromName(t[0]) : Number(t[0])
+        if (id === null) break
+        p.serial.push({ id, ...(named ? { name: t[0] } : {}), functionMask, mspBaud, gpsBaud, telemetryBaud, blackboxBaud })
+        key(`serial.${t[0]}`)
         continue
       }
       case 'aux': {

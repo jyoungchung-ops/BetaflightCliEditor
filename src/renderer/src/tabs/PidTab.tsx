@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { axisRates, maxRate, rateAt, supportsRateType } from '@shared/mapping/rates'
 import { PID_PROFILE_SHOWN, RATE_PROFILE_SHOWN } from '@shared/mapping/tabKeys'
-import { Columns, Field, MasterField, Panel, TabFrame, num } from '../ui/widgets'
+import { Columns, Field, KeyHint, MasterField, Panel, TabFrame, num } from '../ui/widgets'
 import { useSnap } from '../ui/snapshot'
 
 type Kind = 'pid' | 'rate'
@@ -44,7 +44,7 @@ function ProfileField({
       value={format ? format(v) : v}
       unit={unit}
       k={`${kind}.${n}.${name}`}
-      hint={hint === undefined ? <code className="key">{name}</code> : hint}
+      hint={hint === null ? undefined : <KeyHint name={name} hint={hint} />}
     />
   )
 }
@@ -129,28 +129,49 @@ export function PidTab({ initialSub = 'pid' }: { initialSub?: Sub }) {
 
 // ── PID 설정 ──────────────────────────────────────────
 
-/** 표 열: 후보 키 이름 (펌웨어 버전마다 다름) */
-const PID_COLUMNS: { label: string; keys: (axis: string) => string[] }[] = [
-  { label: 'P', keys: (a) => [`p_${a}`] },
-  { label: 'I', keys: (a) => [`i_${a}`] },
-  { label: 'D', keys: (a) => [`d_${a}`] },
-  { label: 'D Max', keys: (a) => [`d_max_${a}`] },
-  { label: '피드포워드', keys: (a) => [`f_${a}`] }
+/**
+ * D 항의 키와 의미는 2025.12에서 바뀌었다 (펌웨어 flight/pid.h, cli/settings.c):
+ *   4.5:      d_<축> = 최대 D (pid[].D, 기본 40), d_min_<축> = 기본 D (기본 30)
+ *   2025.12+: d_<축> = 기본 D (pid[].D, 기본 30), d_max_<축> = 최대 D (기본 40)
+ * 열은 덤프에 있는 키로 고르고, D 열 이름은 어느 쪽인지에 맞춘다.
+ */
+type DScheme = 'dmin' | 'dmax' | 'plain'
+
+function dScheme(p: Record<string, string>): DScheme {
+  if (AXES.some(([a]) => p[`d_min_${a}`] !== undefined)) return 'dmin'
+  if (AXES.some(([a]) => p[`d_max_${a}`] !== undefined)) return 'dmax'
+  return 'plain'
+}
+
+const PID_COLUMNS: { id: string; label: (s: DScheme) => string; key: (axis: string) => string }[] = [
+  { id: 'p', label: () => 'P', key: (a) => `p_${a}` },
+  { id: 'i', label: () => 'I', key: (a) => `i_${a}` },
+  { id: 'd', label: (s) => (s === 'dmin' ? 'D (최대)' : s === 'dmax' ? 'D (기본)' : 'D'), key: (a) => `d_${a}` },
+  { id: 'dmin', label: () => 'D Min (기본)', key: (a) => `d_min_${a}` },
+  { id: 'dmax', label: () => 'D Max (최대)', key: (a) => `d_max_${a}` },
+  { id: 'f', label: () => '피드포워드', key: (a) => `f_${a}` },
+  { id: 's', label: () => 'S', key: (a) => `s_${a}` }
 ]
+
+const D_NOTE: Record<DScheme, string | null> = {
+  dmin: '4.5 방식: D = 큰 움직임에서 쓰는 최대값, D Min = 평소 값',
+  dmax: '2025.12+ 방식: D = 평소 값, D Max = 큰 움직임에서 쓰는 최대값 (4.5의 D·D Min과 자리가 바뀜)',
+  plain: null
+}
 
 function PidTable({ n }: { n: number }) {
   const { snap, changed } = useSnap()
   const p = snap.pidProfiles[n] ?? {}
-  const cols = PID_COLUMNS.map((c) => ({ ...c, key: (a: string) => c.keys(a).find((k) => p[k] !== undefined) })).filter((c) =>
-    AXES.some(([a]) => c.key(a))
-  )
+  const scheme = dScheme(p)
+  const cols = PID_COLUMNS.filter((c) => AXES.some(([a]) => p[c.key(a)] !== undefined))
   return (
+    <>
     <table className="grid-table">
       <thead>
         <tr>
           <th className="left">축</th>
           {cols.map((c) => (
-            <th key={c.label}>{c.label}</th>
+            <th key={c.id}>{c.label(scheme)}</th>
           ))}
         </tr>
       </thead>
@@ -160,10 +181,13 @@ function PidTable({ n }: { n: number }) {
             <th scope="row">{label}</th>
             {cols.map((c) => {
               const k = c.key(axis)
-              const isChanged = k !== undefined && changed.has(`pid.${n}.${k}`)
+              const v = p[k]
+              const isChanged = changed.has(`pid.${n}.${k}`)
               return (
-                <td key={c.label}>
-                  <span className={'value-box' + (isChanged ? ' cell-changed' : '')}>{k ? p[k] : '—'}</span>
+                <td key={c.id}>
+                  <span className={'value-box' + (isChanged ? ' cell-changed' : '')} title={k}>
+                    {v ?? '—'}
+                  </span>
                 </td>
               )
             })}
@@ -171,6 +195,8 @@ function PidTable({ n }: { n: number }) {
         ))}
       </tbody>
     </table>
+    {D_NOTE[scheme] && <p className="muted small">{D_NOTE[scheme]}</p>}
+    </>
   )
 }
 
@@ -192,6 +218,7 @@ function PidSettings({ n }: { n: number }) {
           <F name="simplified_i_gain" label="I 게인" format={x100} />
           <F name="simplified_d_gain" label="D 게인" format={x100} />
           <F name="simplified_dmax_gain" label="D Max 게인" format={x100} />
+          <F name="simplified_d_max_gain" label="D Max 게인" format={x100} />
           <F name="simplified_feedforward_gain" label="피드포워드 게인" format={x100} />
           <F name="simplified_pitch_d_gain" label="피치 D 비율" format={x100} />
           <F name="simplified_pitch_pi_gain" label="피치 P·I 비율" format={x100} />
@@ -204,6 +231,8 @@ function PidSettings({ n }: { n: number }) {
           <F name="feedforward_jitter_factor" label="지터 감소" />
           <F name="feedforward_boost" label="부스트" />
           <F name="feedforward_max_rate_limit" label="최대 레이트 제한" unit="%" />
+          <F name="feedforward_yaw_hold_gain" label="요 홀드 게인" />
+          <F name="feedforward_yaw_hold_time" label="요 홀드 시간" unit="ms" />
         </Panel>
 
         <Panel title="I-term · 안티 그래비티">
@@ -212,12 +241,13 @@ function PidSettings({ n }: { n: number }) {
           <F name="iterm_relax_cutoff" label="릴랙스 컷오프" unit="Hz" />
           <F name="iterm_rotation" label="I-term 회전" />
           <F name="iterm_windup" label="I-term 와인드업" unit="%" />
+          <F name="iterm_limit" label="I-term 제한" />
           <F name="anti_gravity_gain" label="안티 그래비티 게인" format={(v) => (num(v) / 10).toFixed(1)} />
           <F name="anti_gravity_cutoff_hz" label="안티 그래비티 컷오프" unit="Hz" />
           <F name="anti_gravity_p_gain" label="안티 그래비티 P 게인" />
         </Panel>
 
-        <Panel title="D Max · TPA · 스로틀">
+        <Panel title="D Min/Max · TPA · 스로틀">
           <F name="d_max_gain" label="D Max 게인" />
           <F name="d_max_advance" label="D Max 어드밴스" />
           <F name="tpa_mode" label="TPA 모드" />
@@ -226,6 +256,12 @@ function PidSettings({ n }: { n: number }) {
           <F name="tpa_low_rate" label="TPA 저스로틀 비율" unit="%" />
           <F name="tpa_low_breakpoint" label="TPA 저스로틀 시작점" unit="µs" />
           <F name="tpa_low_always" label="TPA 저스로틀 항상" />
+          <F name="tpa_curve_type" label="TPA 커브 방식" />
+          <F name="tpa_curve_stall_throttle" label="TPA 커브 실속 스로틀" />
+          <F name="tpa_curve_pid_thr0" label="TPA 커브 PID (스로틀 0)" />
+          <F name="tpa_curve_pid_thr100" label="TPA 커브 PID (스로틀 100)" />
+          <F name="tpa_curve_expo" label="TPA 커브 엑스포" />
+          <F name="tpa_speed_type" label="TPA 속도 방식" />
           <F name="throttle_boost" label="스로틀 부스트" />
           <F name="throttle_boost_cutoff" label="스로틀 부스트 컷오프" unit="Hz" />
           <F name="motor_output_limit" label="모터 출력 제한" unit="%" />
@@ -249,17 +285,17 @@ function PidSettings({ n }: { n: number }) {
           <F name="angle_feedforward_smoothing_ms" label="앵글 FF 스무딩" unit="ms" />
           <F name="angle_limit" label="앵글 최대 기울기" unit="°" />
           <F name="angle_earth_ref" label="지구 기준 요" unit="%" />
-          <F name="angle_level_strength" label="앵글 강도" />
           <F name="horizon_level_strength" label="호라이즌 강도" />
           <F name="horizon_limit_sticks" label="호라이즌 스틱 한계" unit="%" />
           <F name="horizon_limit_degrees" label="호라이즌 각도 한계" unit="°" />
-          <F name="horizon_transition" label="호라이즌 전환" />
           <F name="horizon_delay_ms" label="호라이즌 지연" unit="ms" />
           <F name="horizon_ignore_sticks" label="스틱 무시" />
           <F name="level_race_mode" label="레이스 모드" />
           <F name="ez_landing_threshold" label="EZ 착륙 임계" />
           <F name="ez_landing_limit" label="EZ 착륙 한계" />
           <F name="ez_landing_speed" label="EZ 착륙 속도" />
+          <F name="angle_pitch_offset" label="앵글 피치 오프셋" />
+          <F name="landing_disarm_threshold" label="착륙 디스아밍 임계" />
         </Panel>
 
         <Panel title="기타 PID 설정">
@@ -427,6 +463,7 @@ function Rates({ n }: { n: number }) {
           <R name="throttle_limit_type" label="스로틀 제한 방식" />
           <R name="throttle_limit_percent" label="스로틀 제한" unit="%" />
           <R name="quickrates_rc_expo" label="Quick 레이트 RC 엑스포" />
+          <R name="thr_hover" label="호버 스로틀" format={x100} />
         </Panel>
       </Columns>
       <div className="cols-gap" />
@@ -496,13 +533,13 @@ function Filters({ n }: { n: number }) {
         <MasterField name="dshot_bidir" label="양방향 DShot" />
       </Panel>
 
-      <Panel title="D-term 로우패스" right={`LPF1 ${lpfState(p.dyn_lpf_dterm_min_hz, p.dterm_lpf1_static_hz)} · LPF2 ${num(p.dterm_lpf2_static_hz) > 0 ? '켜짐' : '꺼짐'}`}>
+      <Panel title="D-term 로우패스" right={`LPF1 ${lpfState(p.dterm_lpf1_dyn_min_hz, p.dterm_lpf1_static_hz)} · LPF2 ${num(p.dterm_lpf2_static_hz) > 0 ? '켜짐' : '꺼짐'}`}>
         <p className="subhead">로우패스 1</p>
         <F name="dterm_lpf1_type" label="종류" />
         <F name="dterm_lpf1_static_hz" label="정적 컷오프" unit="Hz" />
-        <F name="dyn_lpf_dterm_min_hz" label="동적 최소" unit="Hz" hint="0 = 동적 꺼짐" />
-        <F name="dyn_lpf_dterm_max_hz" label="동적 최대" unit="Hz" />
-        <F name="dyn_lpf_dterm_curve_expo" label="동적 커브 엑스포" />
+        <F name="dterm_lpf1_dyn_min_hz" label="동적 최소" unit="Hz" hint="0 = 동적 꺼짐" />
+        <F name="dterm_lpf1_dyn_max_hz" label="동적 최대" unit="Hz" />
+        <F name="dterm_lpf1_dyn_expo" label="동적 커브 엑스포" />
         <p className="subhead">로우패스 2</p>
         <F name="dterm_lpf2_type" label="종류" />
         <F name="dterm_lpf2_static_hz" label="컷오프" unit="Hz" hint="0 = 꺼짐" />

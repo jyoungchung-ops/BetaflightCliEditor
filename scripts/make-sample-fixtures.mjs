@@ -87,7 +87,7 @@ const MASTER = [
   ['imu_dcm_ki', '0'], ['small_angle', '25'], ['imu_process_denom', '2'], ['auto_disarm_delay', '5'],
   ['gyro_cal_on_first_arm', 'OFF'], ['gps_provider', 'UBLOX'], ['gps_sbas_mode', 'AUTO'],
   ['gps_sbas_integrity', 'OFF'], ['gps_auto_config', 'ON'], ['gps_auto_baud', 'OFF'],
-  ['gps_ublox_use_galileo', 'OFF'], ['gps_ublox_mode', 'AIRBORNE'], ['gps_set_home_point_once', 'OFF'],
+  ['gps_ublox_use_galileo', 'OFF'], ['gps_ublox_flight_model', 'AIRBORNE_4G'], ['gps_set_home_point_once', 'OFF'],
   ['gps_use_3d_speed', 'OFF'], ['gps_rescue_min_start_dist', '15'], ['gps_rescue_alt_mode', 'MAX_ALT'],
   ['gps_rescue_initial_climb', '10'], ['gps_rescue_ascend_rate', '750'], ['gps_rescue_return_alt', '30'],
   ['gps_rescue_ground_speed', '750'], ['gps_rescue_descent_dist', '20'],
@@ -100,9 +100,7 @@ const MASTER = [
   ['ledstrip_visual_beeper', 'OFF'], ['ledstrip_grb_rgb', 'GRB'], ['ledstrip_profile', 'STATUS'],
   ['ledstrip_race_color', 'ORANGE'], ['ledstrip_beacon_color', 'WHITE'], ['ledstrip_brightness', '100'],
   ['sdcard_detect_inverted', 'OFF'], ['sdcard_mode', 'OFF'], ['osd_units', 'METRIC'],
-  ['osd_warn_arming_disable', 'ON'], ['osd_warn_batt_not_full', 'ON'], ['osd_warn_batt_warning', 'ON'],
-  ['osd_warn_batt_critical', 'ON'], ['osd_warn_visual_beeper', 'ON'], ['osd_warn_crash_flip', 'ON'],
-  ['osd_warn_rssi', 'OFF'], ['osd_warn_link_quality', 'OFF'], ['osd_rssi_alarm', '20'],
+  ['osd_warn_bitmask', '269500949'], ['osd_rssi_alarm', '20'],
   ['osd_link_quality_alarm', '80'], ['osd_cap_alarm', '2200'], ['osd_alt_alarm', '100'],
   ['osd_distance_alarm', '0'], ['osd_esc_temp_alarm', '-128'], ['osd_core_temp_alarm', '70'],
   ['osd_ah_max_pit', '20'], ['osd_ah_max_rol', '40'], ['osd_ah_invert', 'OFF'],
@@ -116,12 +114,11 @@ const MASTER = [
   ['osd_mah_drawn_pos', String(osdPos(1, 11, false))], ['osd_craft_name_pos', String(osdPos(9, 11, false))],
   ['osd_altitude_pos', String(osdPos(23, 7, false))], ['osd_warnings_pos', String(osdPos(9, 10, false))],
   ['osd_avg_cell_voltage_pos', String(osdPos(12, 2, false))], ['osd_disarmed_pos', String(osdPos(10, 4, false))],
-  ['osd_rtc_date_time_pos', String(osdPos(1, 0, false))], ['osd_display_name_pos', String(osdPos(10, 11, false))],
+  ['osd_rtc_date_time_pos', String(osdPos(1, 0, false))],
   ['osd_displayport_device', 'AUTO'], ['osd_rcchannels', '-1,-1,-1,-1'], ['osd_camera_frame_width', '24'],
-  ['osd_camera_frame_height', '11'], ['osd_stat_bitmap', '14124'], ['osd_profile', '1'],
+  ['osd_camera_frame_height', '11'], ['osd_stat_bitmask', '14124'], ['osd_profile', '1'],
   ['osd_profile_1_name', '-'], ['osd_profile_2_name', '-'], ['osd_profile_3_name', '-'],
   ['displayport_msp_col_adjust', '0'], ['displayport_msp_row_adjust', '0'],
-  ['displayport_msp_serial', '-1'], ['displayport_msp_attrs', '0,0,0,0'],
   ['displayport_msp_use_device_blink', 'OFF'], ['vcd_video_system', 'AUTO'], ['vcd_h_offset', '0'],
   ['vcd_v_offset', '0'], ['max7456_clock', 'DEFAULT'], ['vtx_band', '0'], ['vtx_channel', '0'],
   ['vtx_power', '0'], ['vtx_low_power_disarm', 'OFF'], ['vtx_softserial_alt', 'OFF'], ['vtx_freq', '0'],
@@ -138,8 +135,8 @@ const MASTER = [
 ]
 
 const PID_PROFILE = [
-  ['profile_name', '-'], ['dyn_lpf_dterm_min_hz', '75'], ['dyn_lpf_dterm_max_hz', '150'],
-  ['dyn_lpf_dterm_curve_expo', '5'], ['dterm_lpf1_type', 'PT1'], ['dterm_lpf1_static_hz', '75'],
+  ['profile_name', '-'], ['dterm_lpf1_dyn_min_hz', '75'], ['dterm_lpf1_dyn_max_hz', '150'],
+  ['dterm_lpf1_dyn_expo', '5'], ['dterm_lpf1_type', 'PT1'], ['dterm_lpf1_static_hz', '75'],
   ['dterm_lpf2_type', 'PT1'], ['dterm_lpf2_static_hz', '150'], ['dterm_notch_hz', '0'],
   ['dterm_notch_cutoff', '0'], ['vbat_sag_compensation', '0'], ['pid_at_min_throttle', 'ON'],
   ['anti_gravity_gain', '80'], ['anti_gravity_cutoff_hz', '5'], ['anti_gravity_p_gain', '100'],
@@ -150,13 +147,13 @@ const PID_PROFILE = [
   ['iterm_relax_type', 'SETPOINT'], ['iterm_relax_cutoff', '15'], ['iterm_windup', '85'],
   ['pidsum_limit', '500'], ['pidsum_limit_yaw', '400'], ['yaw_lowpass_hz', '100'],
   ['throttle_boost', '5'], ['throttle_boost_cutoff', '15'], ['p_pitch', '47'], ['i_pitch', '84'],
-  ['d_pitch', '34'], ['f_pitch', '125'], ['p_roll', '45'], ['i_roll', '80'], ['d_roll', '30'],
+  ['d_pitch', '46'], ['f_pitch', '125'], ['p_roll', '45'], ['i_roll', '80'], ['d_roll', '40'],
   ['f_roll', '120'], ['p_yaw', '45'], ['i_yaw', '80'], ['d_yaw', '0'], ['f_yaw', '120'],
   ['angle_p_gain', '50'], ['angle_feedforward', '50'], ['angle_feedforward_smoothing_ms', '80'],
   ['angle_limit', '60'], ['angle_earth_ref', '100'], ['horizon_level_strength', '75'],
   ['horizon_limit_sticks', '75'], ['horizon_limit_degrees', '135'], ['horizon_ignore_sticks', 'OFF'],
   ['horizon_delay_ms', '500'], ['level_race_mode', 'OFF'], ['use_integrated_yaw', 'OFF'],
-  ['integrated_yaw_relax', '200'], ['d_max_roll', '40'], ['d_max_pitch', '46'], ['d_max_yaw', '0'],
+  ['integrated_yaw_relax', '200'], ['d_min_roll', '30'], ['d_min_pitch', '34'], ['d_min_yaw', '0'],
   ['d_max_gain', '37'], ['d_max_advance', '20'], ['motor_output_limit', '100'],
   ['auto_profile_cell_count', '0'], ['thrust_linear', '0'], ['feedforward_transition', '0'],
   ['feedforward_averaging', 'OFF'], ['feedforward_smooth_factor', '25'],
@@ -182,8 +179,48 @@ const RATE_PROFILE = [
   ['yaw_rate_limit', '1998']
 ]
 
+// ── 2025.12 에서 바뀐 키 (betaflight 4.5.5 → 2025.12.5 settings.c 비교, docs/cli-compat.md) ──
+const FW_2025 = {
+  master: {
+    rename: { dshot_idle_value: 'motor_idle', crashflip_expo: 'crashflip_rate' },
+    replace: { failsafe_off_delay: ['failsafe_landing_time', '60'] }, // 0.1초 단위 → 초 단위
+    remove: [
+      'min_throttle', 'gyro_to_use', 'rc_smoothing_feedforward_cutoff', 'gps_rescue_landing_alt',
+      'gyro_1_bustype', 'gyro_1_spibus', 'gyro_1_sensor_align', 'gyro_1_align_roll', 'gyro_1_align_pitch', 'gyro_1_align_yaw'
+    ],
+    add: [
+      ['gyro_enabled_bitmask', '1'], ['ap_landing_altitude_m', '4'], ['ap_hover_throttle', '1275'],
+      ['ap_throttle_min', '1100'], ['ap_throttle_max', '1700'], ['alt_hold_climb_rate', '50'],
+      ['alt_hold_deadband', '20'], ['pos_hold_deadband', '5']
+    ]
+  },
+  pid: {
+    // D 의미가 바뀜: 4.5 d_=최대, d_min_=기본 → 2025.12 d_=기본, d_max_=최대
+    rename: { simplified_dmax_gain: 'simplified_d_max_gain' },
+    replace: { d_roll: ['d_roll', '30'], d_pitch: ['d_pitch', '34'] },
+    remove: ['d_min_roll', 'd_min_pitch', 'd_min_yaw', 'dyn_idle_start_increase'],
+    add: [
+      ['d_max_roll', '40'], ['d_max_pitch', '46'], ['d_max_yaw', '0'],
+      ['s_roll', '0'], ['s_pitch', '0'], ['s_yaw', '0'], ['tpa_curve_type', 'CLASSIC']
+    ]
+  },
+  rate: { rename: {}, replace: {}, remove: [], add: [['thr_hover', '50']] }
+}
+
+function forFw(list, fw, rules) {
+  if (fw !== '2025.12') return list
+  const out = list
+    .filter(([k]) => !rules.remove.includes(k))
+    .map(([k, v]) => (rules.replace[k] ? rules.replace[k] : rules.rename[k] ? [rules.rename[k], v] : [k, v]))
+  return [...out, ...rules.add]
+}
+
+/** serial 줄의 포트 표기: 4.5 = 숫자 id, 2025.12 = 이름 (io/serial.c serialPortNames) */
+const serialToken = (id, fw) => (fw !== '2025.12' ? String(id) : id === 20 ? 'VCP' : `UART${id + 1}`)
+const serialLine = (id, mask, fw) => [`serial.${serialToken(id, fw)}`, `serial ${serialToken(id, fw)} ${mask} 115200 57600 0 115200`]
+
 // 섹션: [제목, [[키, 줄], ...]]. 키 체계는 파서(src/shared/cli/parser.ts)와 같다.
-function defaults(board) {
+function defaults(board, fw) {
   const range = (n, fn) => Array.from({ length: n }, (_, i) => fn(i))
   const sections = [
     ['resources', board.resources.map(([name, idx, pin]) => [`resource.${name}.${idx}`, `resource ${name} ${idx} ${pin}`])],
@@ -196,7 +233,7 @@ function defaults(board) {
     ['beeper', BEEPERS.map((b) => [`beeper.${b}`, `beeper ${b}`])],
     ['beacon', BEACONS.map((b) => [`beacon.${b}`, `beacon -${b}`])],
     ['map', [['map', 'map AETR1234']]],
-    ['serial', board.serials.map((id) => [`serial.${id}`, `serial ${id} ${id === 20 ? 1 : 0} 115200 57600 0 115200`])],
+    ['serial', board.serials.map((id) => serialLine(id, id === 20 ? 1 : 0, fw))],
     ['led', range(32, (i) => [`led.${i}`, `led ${i} 0,0::C:0`])],
     ['color', range(16, (i) => [`color.${i}`, `color ${i} ${DEFAULT_COLORS[i]}`])],
     ['mode_color', MODE_COLORS.map(([m, f, c]) => [`mode_color.${m}.${f}`, `mode_color ${m} ${f} ${c}`])],
@@ -210,12 +247,12 @@ function defaults(board) {
     ]],
     ['vtx', range(10, (i) => [`vtx.${i}`, `vtx ${i} 0 0 0 0 900 900`])],
     ['rxfail', range(18, (i) => [`rxfail.${i}`, `rxfail ${i} ${i < 4 ? 'a' : 'h'}`])],
-    ['master', MASTER.map(([k, v]) => [`master.${k}`, `set ${k} = ${v}`])]
+    ['master', forFw(MASTER, fw, FW_2025.master).map(([k, v]) => [`master.${k}`, `set ${k} = ${v}`])]
   ]
   return {
     sections,
-    pid: range(4, (n) => PID_PROFILE.map(([k, v]) => [`pid.${n}.${k}`, `set ${k} = ${v}`])),
-    rate: range(4, (n) => RATE_PROFILE.map(([k, v]) => [`rate.${n}.${k}`, `set ${k} = ${v}`]))
+    pid: range(4, (n) => forFw(PID_PROFILE, fw, FW_2025.pid).map(([k, v]) => [`pid.${n}.${k}`, `set ${k} = ${v}`])),
+    rate: range(4, (n) => forFw(RATE_PROFILE, fw, FW_2025.rate).map(([k, v]) => [`rate.${n}.${k}`, `set ${k} = ${v}`]))
   }
 }
 
@@ -256,11 +293,10 @@ const F7X2 = {
 }
 
 /** O4(DJI) 공통: MSP DisplayPort HD OSD */
-function o4Osd(set, uartId) {
-  set(`serial.${uartId}`, `serial ${uartId} 131073 115200 57600 0 115200`) // MSP + VTX_MSP
+function o4Osd(set, uartId, fw) {
+  set(...serialLine(uartId, 131073, fw)) // MSP + VTX_MSP (DisplayPort UART은 이 기능 비트로 정한다)
   set('master.osd_displayport_device', 'set osd_displayport_device = MSP')
   set('master.vcd_video_system', 'set vcd_video_system = HD')
-  set('master.displayport_msp_serial', `set displayport_msp_serial = ${uartId}`)
   const pos = {
     osd_vbat_pos: [24, 17], osd_link_quality_pos: [2, 1], osd_tim_2_pos: [46, 17],
     osd_flymode_pos: [24, 15], osd_current_pos: [2, 17], osd_mah_drawn_pos: [2, 16],
@@ -277,11 +313,11 @@ const CRAFTS = [
     version: '4.5.1', buildDate: 'Jul 28 2024 / 05:51:08', commit: '77d01ba3b',
     sensors: 'GYRO=ICM42688P, ACC=ICM42688P',
     activePid: 0, activeRate: 0,
-    apply(set) {
+    apply(set, fw) {
       set('master.craft_name', 'set craft_name = Meteor75 Pro')
       set('master.serialrx_provider', 'set serialrx_provider = CRSF')
-      set('serial.1', 'serial 1 64 115200 57600 0 115200')
-      o4Osd(set, 0)
+      set(...serialLine(1, 64, fw))
+      o4Osd(set, 0, fw)
       set('master.motor_pwm_protocol', 'set motor_pwm_protocol = DSHOT300')
       set('master.dshot_bidir', 'set dshot_bidir = ON')
       set('master.motor_poles', 'set motor_poles = 12')
@@ -300,7 +336,7 @@ const CRAFTS = [
       set('aux.2', 'aux 2 35 2 1700 2100 0 0')
       set('aux.3', 'aux 3 13 3 1700 2100 0 0')
       set('rxfail.4', 'rxfail 4 s 1000')
-      const pid = { p_roll: 60, i_roll: 70, d_roll: 48, f_roll: 90, p_pitch: 62, i_pitch: 72, d_pitch: 52, f_pitch: 95, p_yaw: 55, i_yaw: 70, f_yaw: 90, d_max_roll: 60, d_max_pitch: 64, thrust_linear: 25, tpa_breakpoint: 1500 }
+      const pid = { p_roll: 60, i_roll: 70, d_roll: 60, f_roll: 90, p_pitch: 62, i_pitch: 72, d_pitch: 64, f_pitch: 95, p_yaw: 55, i_yaw: 70, f_yaw: 90, d_min_roll: 48, d_min_pitch: 52, thrust_linear: 25, tpa_breakpoint: 1500 }
       for (const [k, v] of Object.entries(pid)) set(`pid.0.${k}`, `set ${k} = ${v}`)
       set('pid.0.profile_name', 'set profile_name = 1S HV')
       const rate = { roll_rc_rate: 12, pitch_rc_rate: 12, yaw_rc_rate: 12, roll_srate: 75, pitch_srate: 75, yaw_srate: 60, roll_expo: 20, pitch_expo: 20 }
@@ -317,12 +353,12 @@ const CRAFTS = [
     version: '4.5.2', buildDate: 'Mar 11 2025 / 10:02:41', commit: 'a1b2c3d4e',
     sensors: 'GYRO=ICM42688P, ACC=ICM42688P, BARO=DPS310',
     activePid: 1, activeRate: 1,
-    apply(set) {
+    apply(set, fw) {
       set('master.craft_name', 'set craft_name = Pavo20 Pro2')
       set('master.pilot_name', 'set pilot_name = Chloe')
       set('master.serialrx_provider', 'set serialrx_provider = CRSF')
-      set('serial.1', 'serial 1 64 115200 57600 0 115200')
-      o4Osd(set, 2)
+      set(...serialLine(1, 64, fw))
+      o4Osd(set, 2, fw)
       set('master.dshot_bidir', 'set dshot_bidir = ON')
       set('master.motor_poles', 'set motor_poles = 12')
       set('master.align_board_yaw', 'set align_board_yaw = 90')
@@ -355,13 +391,13 @@ const CRAFTS = [
     version: '4.5.1', buildDate: 'Jul 28 2024 / 05:51:08', commit: '77d01ba3b',
     sensors: 'GYRO=ICM42688P, ACC=ICM42688P, BARO=SPL06',
     activePid: 0, activeRate: 2,
-    apply(set) {
+    apply(set, fw) {
       set('master.craft_name', 'set craft_name = Moz7')
       set('master.serialrx_provider', 'set serialrx_provider = CRSF')
       set('master.crsf_use_negotiated_baud', 'set crsf_use_negotiated_baud = ON')
-      set('serial.1', 'serial 1 64 115200 57600 0 115200')
-      set('serial.2', 'serial 2 2 115200 57600 0 115200') // GPS
-      o4Osd(set, 0)
+      set(...serialLine(1, 64, fw))
+      set(...serialLine(2, 2, fw)) // GPS
+      o4Osd(set, 0, fw)
       set('feature.GPS', 'feature GPS')
       set('master.gps_rescue_return_alt', 'set gps_rescue_return_alt = 60')
       set('master.gps_rescue_min_sats', 'set gps_rescue_min_sats = 10')
@@ -380,7 +416,8 @@ const CRAFTS = [
       set('aux.4', 'aux 4 35 4 1700 2100 0 0')
       set('rxfail.5', 'rxfail 5 s 1100')
       set('vtx.0', 'vtx 0 4 0 0 1 1700 2100')
-      const pid = { p_roll: 48, i_roll: 88, d_roll: 36, p_pitch: 52, i_pitch: 92, d_pitch: 40, d_max_roll: 46, d_max_pitch: 52, dyn_idle_min_rpm: 30 }
+      const dTerm = fw === '2025.12' ? { d_roll: 36, d_pitch: 40, d_max_roll: 46, d_max_pitch: 52 } : { d_roll: 46, d_pitch: 52, d_min_roll: 36, d_min_pitch: 40 }
+      const pid = { p_roll: 48, i_roll: 88, p_pitch: 52, i_pitch: 92, ...dTerm, dyn_idle_min_rpm: 30 }
       for (const [k, v] of Object.entries(pid)) set(`pid.0.${k}`, `set ${k} = ${v}`)
       const rate = { rates_type: 'BETAFLIGHT', roll_rc_rate: 100, pitch_rc_rate: 100, yaw_rc_rate: 100, roll_srate: 70, pitch_srate: 70, yaw_srate: 60 }
       for (const [k, v] of Object.entries(rate)) set(`rate.2.${k}`, `set ${k} = ${v}`)
@@ -391,10 +428,13 @@ const CRAFTS = [
   }
 ]
 
+// 같은 Moz7을 2025.12.5 형식으로 (serial 포트 이름, d_max, motor_idle, failsafe_landing_time, ap_* ...)
+CRAFTS.push({ ...CRAFTS[2], id: "moz7-2025.12", fw: "2025.12", version: "2025.12.5", buildDate: "Apr 10 2026 / 08:12:30", commit: "7348054f2", mspApi: "1.47" })
+
 // ── 출력 ─────────────────────────────────────────────────
 
 function versionLine(c) {
-  return `# Betaflight / ${c.board.target} (${c.board.short}) ${c.version} ${c.buildDate} (${c.commit}) MSP API: 1.46`
+  return `# Betaflight / ${c.board.target} (${c.board.short}) ${c.version} ${c.buildDate} (${c.commit}) MSP API: ${c.mspApi ?? '1.46'}`
 }
 
 function render(c, cfg, base, mode) {
@@ -448,8 +488,8 @@ function statusText(c) {
 
 mkdirSync(OUT, { recursive: true })
 for (const c of CRAFTS) {
-  const base = defaults(c.board)
-  const cfg = defaults(c.board)
+  const base = defaults(c.board, c.fw)
+  const cfg = defaults(c.board, c.fw)
   const index = new Map()
   cfg.sections.forEach(([, items]) => items.forEach((it) => it[0] && index.set(it[0], it)))
   cfg.pid.forEach((items) => items.forEach((it) => index.set(it[0], it)))
@@ -458,7 +498,7 @@ for (const c of CRAFTS) {
     const it = index.get(key)
     if (!it) throw new Error(`${c.id}: 알 수 없는 키 ${key}`)
     it[1] = line
-  })
+  }, c.fw)
   c.craftName = cfg.sections.find(([t]) => t === 'master')[1].find(([k]) => k === 'master.craft_name')[1].split(' = ')[1]
 
   const changedKeys = [...index.entries()]
@@ -482,6 +522,7 @@ for (const c of CRAFTS) {
         board: c.board.name,
         target: c.board.target,
         version: c.version,
+        firmware: c.fw ?? "4.5",
         activePidProfile: c.activePid,
         activeRateProfile: c.activeRate,
         changedKeys

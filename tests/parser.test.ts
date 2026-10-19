@@ -9,6 +9,7 @@ import {
   parseVersion,
   parseVersionLine
 } from '../src/shared/cli/parser'
+import { portName } from '../src/shared/mapping/serial'
 
 const FIXTURES = join(__dirname, '..', 'fixtures')
 const SAMPLE = join(FIXTURES, 'sample')
@@ -84,8 +85,10 @@ describe.each(samples)('샘플 픽스처: %s', (id) => {
   })
 
   it('포트·모드·기능', () => {
-    expect(snap.serial.find((s) => s.id === 20)?.functionMask).toBe(1)
-    expect(snap.serial.find((s) => s.id === 1)?.functionMask).toBe(64) // UART2 = Serial RX
+    // 4.5는 숫자 id(1 = UART2), 2025.12는 이름(UART2) — 표시 이름으로 비교
+    const byName = (n: string) => snap.serial.find((s) => portName(s.id, s.name) === n)
+    expect(byName('USB VCP')?.functionMask).toBe(1)
+    expect(byName('UART2')?.functionMask).toBe(64) // Serial RX
     expect(snap.aux.find((a) => a.index === 0)).toMatchObject({ modeId: 0, channel: 0, start: 1700, end: 2100 })
     expect(snap.features.RX_SERIAL).toBe(true)
     expect(snap.rxMap).toBe('AETR1234')

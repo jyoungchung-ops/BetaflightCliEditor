@@ -12,11 +12,11 @@ export interface KeyRule {
 export const TAB_MASTER_KEYS: Partial<Record<TabId, KeyRule>> = {
   setup: { keys: ['craft_name', 'pilot_name', 'acc_trim_roll', 'acc_trim_pitch', 'acc_calibration'] },
   ports: {
-    keys: ['displayport_msp_serial', 'serialrx_halfduplex', 'serialmsp_halfduplex', 'tlm_halfduplex', 'tlm_inverted', 'vtx_halfduplex']
+    keys: ['serialrx_halfduplex', 'serialmsp_halfduplex', 'tlm_halfduplex', 'tlm_inverted', 'vtx_halfduplex']
   },
   configuration: {
     keys: [
-      'gyro_to_use', 'acc_hardware', 'baro_hardware', 'mag_hardware', 'pid_process_denom',
+      'gyro_to_use', 'gyro_enabled_bitmask', 'acc_hardware', 'baro_hardware', 'mag_hardware', 'pid_process_denom',
       'motor_pwm_protocol', 'motor_pwm_rate', 'use_unsynced_pwm', 'dshot_bidir', 'motor_poles', 'motor_idle',
       'dshot_idle_value', 'min_throttle', 'max_throttle', 'min_command', 'dshot_bitbang', 'dshot_edt',
       'yaw_motors_reversed', 'align_board_roll', 'align_board_pitch', 'align_board_yaw', 'gyro_1_sensor_align',
@@ -50,13 +50,20 @@ export const TAB_MASTER_KEYS: Partial<Record<TabId, KeyRule>> = {
     prefixes: ['vbat_', 'ibat']
   },
   failsafe: { keys: ['rx_min_usec', 'rx_max_usec'], prefixes: ['failsafe_'] },
-  motors: { keys: ['motor_pwm_protocol', 'motor_idle', 'dshot_idle_value', 'yaw_motors_reversed', 'motor_output_reordering', 'crashflip_motor_percent', 'crashflip_expo'], prefixes: ['3d_'] },
+  motors: {
+    keys: [
+      'motor_pwm_protocol', 'motor_idle', 'dshot_idle_value', 'yaw_motors_reversed', 'motor_output_reordering',
+      'crashflip_motor_percent', 'crashflip_expo', 'crashflip_rate', 'crashflip_auto_rearm'
+    ],
+    prefixes: ['3d_']
+  },
   servos: { keys: ['servo_center_pulse', 'servo_pwm_rate', 'servo_lowpass_hz', 'tri_unarmed_servo', 'channel_forwarding_start'] },
   osd: { keys: ['vcd_video_system', 'vcd_h_offset', 'vcd_v_offset', 'max7456_clock'], prefixes: ['osd_', 'displayport_msp_'] },
   vtx: { keys: [], prefixes: ['vtx_'] },
   led: { keys: [], prefixes: ['ledstrip_'] },
   blackbox: { keys: ['debug_mode', 'sdcard_mode', 'sdcard_detect_inverted'], prefixes: ['blackbox_'] },
-  gps: { keys: [], prefixes: ['gps_'] }
+  // 2025.12+: GPS 레스큐 일부가 오토파일럿(ap_*)으로 옮겨졌고 고도·위치 유지(alt_hold_, pos_hold_)가 생겼다
+  gps: { keys: [], prefixes: ['gps_', 'ap_', 'alt_hold_', 'pos_hold_', 'poshold_'] }
 }
 
 /**
@@ -97,19 +104,25 @@ export const PID_PROFILE_SHOWN = new Set([
   'throttle_boost_cutoff', 'motor_output_limit', 'thrust_linear', 'vbat_sag_compensation',
   'auto_profile_cell_count', 'dyn_idle_min_rpm', 'dyn_idle_p_gain', 'dyn_idle_i_gain', 'dyn_idle_d_gain',
   'dyn_idle_max_increase', 'dyn_idle_start_increase', 'angle_p_gain', 'angle_feedforward',
-  'angle_feedforward_smoothing_ms', 'angle_limit', 'angle_earth_ref', 'angle_level_strength',
-  'horizon_level_strength', 'horizon_limit_sticks', 'horizon_limit_degrees', 'horizon_transition',
+  'angle_feedforward_smoothing_ms', 'angle_limit', 'angle_earth_ref',
+  'horizon_level_strength', 'horizon_limit_sticks', 'horizon_limit_degrees',
   'horizon_delay_ms', 'horizon_ignore_sticks', 'level_race_mode', 'ez_landing_threshold', 'ez_landing_limit',
   'ez_landing_speed', 'pidsum_limit', 'pidsum_limit_yaw', 'use_integrated_yaw', 'integrated_yaw_relax',
   'acc_limit', 'acc_limit_yaw', 'pid_at_min_throttle', 'crash_recovery', 'acro_trainer_angle_limit',
+  // 4.5만: D Min(기본 D), I-term 제한, 슬라이더 이름
+  'd_min_roll', 'd_min_pitch', 'd_min_yaw', 'iterm_limit',
+  // 2025.12+: S 항, 슬라이더 이름 변경, 요 홀드, TPA 커브
+  's_roll', 's_pitch', 's_yaw', 'simplified_d_max_gain', 'feedforward_yaw_hold_gain', 'feedforward_yaw_hold_time',
+  'tpa_curve_type', 'tpa_curve_stall_throttle', 'tpa_curve_pid_thr0', 'tpa_curve_pid_thr100', 'tpa_curve_expo',
+  'tpa_speed_type', 'angle_pitch_offset', 'landing_disarm_threshold',
   // 필터 하위 탭
   'simplified_dterm_filter', 'simplified_dterm_filter_multiplier', 'dterm_lpf1_type', 'dterm_lpf1_static_hz',
-  'dyn_lpf_dterm_min_hz', 'dyn_lpf_dterm_max_hz', 'dyn_lpf_dterm_curve_expo', 'dterm_lpf2_type',
+  'dterm_lpf1_dyn_min_hz', 'dterm_lpf1_dyn_max_hz', 'dterm_lpf1_dyn_expo', 'dterm_lpf2_type',
   'dterm_lpf2_static_hz', 'dterm_notch_hz', 'dterm_notch_cutoff', 'yaw_lowpass_hz'
 ])
 
 export const RATE_PROFILE_SHOWN = new Set([
   'rateprofile_name', 'rates_type', 'thr_mid', 'thr_expo', 'throttle_limit_type', 'throttle_limit_percent',
-  'quickrates_rc_expo',
+  'quickrates_rc_expo', 'thr_hover',
   ...['roll', 'pitch', 'yaw'].flatMap((a) => [`${a}_rc_rate`, `${a}_srate`, `${a}_expo`, `${a}_rate_limit`])
 ])

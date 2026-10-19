@@ -15,7 +15,6 @@ const VIDEO: FieldDef[] = [
   ['displayport_msp_col_adjust', 'DisplayPort 열 보정'],
   ['displayport_msp_row_adjust', 'DisplayPort 행 보정'],
   ['displayport_msp_fonts', 'DisplayPort 글꼴'],
-  ['displayport_msp_attrs', 'DisplayPort 속성'],
   ['displayport_msp_use_device_blink', '장치 깜빡임 사용'],
   ['vcd_h_offset', '가로 오프셋'],
   ['vcd_v_offset', '세로 오프셋'],
@@ -67,9 +66,12 @@ export function OsdTab() {
   const visibleCount = elements.filter((e) => e.visible[profile]).length
   const sorted = [...elements].sort((a, b) => Number(b.visible[profile]) - Number(a.visible[profile]) || a.label.localeCompare(b.label))
 
-  const warnKeys = Object.keys(snap.master).filter((k) => k.startsWith('osd_warn_'))
+  // 경고·통계는 펌웨어에 따라 ON/OFF 키 여러 개이거나 비트마스크(osd_warn_bitmask, osd_stat_bitmask) 하나다.
+  // ON/OFF 값만 토글로 그리고, 비트마스크는 "그 밖의 OSD 설정"에 숫자로 나온다.
+  const isOnOff = (k: string) => snap.master[k] === 'ON' || snap.master[k] === 'OFF'
+  const warnKeys = Object.keys(snap.master).filter((k) => k.startsWith('osd_warn_') && isOnOff(k))
   const alarmKeys = Object.keys(snap.master).filter((k) => /^osd_.+_alarm$/.test(k))
-  const statKeys = Object.keys(snap.master).filter((k) => k.startsWith('osd_stat_') && k !== 'osd_stat_bitmap')
+  const statKeys = Object.keys(snap.master).filter((k) => k.startsWith('osd_stat_') && isOnOff(k))
 
   return (
     <TabFrame title="OSD" en="OSD">

@@ -1,0 +1,2 @@
+# Betaflight / STM32F7X2 (S7X2) 2025.12.5 Apr 10 2026 / 08:12:30 (7348054f2) MSP API: 1.47
+# config: manufacturer_id: GEPR, board_name: GEPRCF722, version: 4c8a7f3a, date: 2024-05-04T04:57:12Z

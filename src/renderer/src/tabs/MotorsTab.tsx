@@ -11,7 +11,9 @@ const SETTINGS: FieldDef[] = [
   ['yaw_motors_reversed', '모터 방향 반전 (props out)'],
   ['motor_output_reordering', '모터 순서 재배치', { hint: '모터 1~8이 실제로 쓰는 출력' }],
   ['crashflip_motor_percent', '크래시 플립 모터 출력', { unit: '%' }],
-  ['crashflip_expo', '크래시 플립 엑스포', { unit: '%' }]
+  ['crashflip_expo', '크래시 플립 엑스포', { unit: '%' }],
+  ['crashflip_rate', '크래시 플립 회전 속도', { hint: '2025.12+' }],
+  ['crashflip_auto_rearm', '크래시 플립 후 자동 재아밍', { hint: '2025.12+' }]
 ]
 
 /** QUADX 모터 위치 (Betaflight: 1 뒤오른쪽, 2 앞오른쪽, 3 뒤왼쪽, 4 앞왼쪽) */

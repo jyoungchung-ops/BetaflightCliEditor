@@ -13,8 +13,9 @@ const STAGE1: FieldDef[] = [
 
 const STAGE2: FieldDef[] = [
   ['failsafe_procedure', '2단계 절차', { hint: 'DROP = 모터 정지 · LAND = 착륙 · GPS-RESCUE = 귀환' }],
-  ['failsafe_landing_time', '착륙 시간', { unit: 's' }],
-  ['failsafe_off_delay', '착륙 후 모터 정지까지', SEC],
+  // 4.5 failsafe_off_delay(0.1초 단위) → 2025.12+ failsafe_landing_time(초 단위)
+  ['failsafe_landing_time', '착륙 허용 시간 (지나면 디스아밍)', { unit: 's', hint: '2025.12+' }],
+  ['failsafe_off_delay', '착륙 허용 시간 (지나면 모터 정지)', { ...SEC, hint: '4.5' }],
   ['failsafe_throttle', '착륙 스로틀', { unit: 'µs' }],
   ['failsafe_throttle_low_delay', '저스로틀이면 바로 정지하는 시간', SEC],
   ['failsafe_recovery_delay', '복구 판정 시간', SEC],

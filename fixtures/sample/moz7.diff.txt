@@ -64,7 +64,6 @@ set osd_craft_name_pos = 2102
 set osd_warnings_pos = 2483
 set osd_avg_cell_voltage_pos = 3117
 set osd_displayport_device = MSP
-set displayport_msp_serial = 0
 set vcd_video_system = HD
 set craft_name = Moz7
 set rpm_filter_harmonics = 2
@@ -74,12 +73,12 @@ profile 0
 # profile 0
 set p_pitch = 52
 set i_pitch = 92
-set d_pitch = 40
+set d_pitch = 52
 set p_roll = 48
 set i_roll = 88
-set d_roll = 36
-set d_max_roll = 46
-set d_max_pitch = 52
+set d_roll = 46
+set d_min_roll = 36
+set d_min_pitch = 40
 set dyn_idle_min_rpm = 30
 
 profile 1

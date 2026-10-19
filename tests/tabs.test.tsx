@@ -53,7 +53,7 @@ describe('레이트 공식 (Betaflight App 표시값과 비교)', () => {
 
 describe('시리얼 해석', () => {
   it('포트 이름', () => {
-    expect([0, 1, 9, 20, 30, 31, 40].map(portName)).toEqual(['UART1', 'UART2', 'UART10', 'USB VCP', 'SOFTSERIAL1', 'SOFTSERIAL2', 'LPUART1'])
+    expect([0, 1, 9, 20, 30, 31, 40].map((id) => portName(id))).toEqual(['UART1', 'UART2', 'UART10', 'USB VCP', 'SOFTSERIAL1', 'SOFTSERIAL2', 'LPUART1'])
   })
   it('기능 비트', () => {
     const f = describeSerialFunctions(1 | 64 | 2 | 128 | 131072 | 32)

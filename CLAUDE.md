@@ -6,6 +6,11 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
 - FC에 쓰기 명령을 보내지 않는다. 송신 함수는 하나만 두고 화이트리스트(`#`, `version`, `status`, `diff all`, `dump all`, `get <이름>`)만 허용한다.
 - Betaflight 로고·이름을 UI에 쓰지 않는다. configurator(GPL) 코드는 복사하지 않고 구조만 참고한다.
 
+## 펌웨어 버전 호환성
+- CLI 진입·버전별 키 변경 조사 결과는 [docs/cli-compat.md](docs/cli-compat.md). 저녁 실기체 테스트는 [docs/hw-test-checklist.md](docs/hw-test-checklist.md)
+- 키 이름을 화면에 추가할 때는 `fixtures/settings-names/*.json`(실제 펌웨어 목록)에 있는 이름만 쓴다 — `tests/firmwareCompat.test.tsx`가 검사
+- 4.5와 2025.12에서 `d_roll`의 의미가 반대(최대 ↔ 기본). serial 줄은 2025.12부터 포트 이름
+
 ## 구조
 - `src/main/` — Electron 메인 프로세스(시리얼, 파일 저장/열기)
 - `src/preload/` — `contextBridge`로 `window.bfview` 노출

@@ -1,11 +1,30 @@
 // serial 줄 해석: 포트 id 이름, 기능 비트마스크 (펌웨어 serial.h 기준)
 
-export function portName(id: number): string {
+/**
+ * 포트 표시 이름. 2025.12+는 serial 줄에 나온 이름(name)을 쓴다.
+ * 숫자 식별자는 4.5(0~9 = UART1~10)와 2025.12+(50 = UART0, 51~60 = UART1~10)를 모두 해석한다.
+ */
+export function portName(id: number, name?: string): string {
+  if (name) {
+    const n = name.toUpperCase()
+    if (n === 'VCP') return 'USB VCP'
+    const soft = /^SOFT(\d+)$/.exec(n)
+    return soft ? `SOFTSERIAL${soft[1]}` : n
+  }
   if (id === 20) return 'USB VCP'
   if (id >= 0 && id <= 9) return `UART${id + 1}`
   if (id >= 30 && id <= 39) return `SOFTSERIAL${id - 29}`
   if (id >= 40 && id <= 49) return `LPUART${id - 39}`
+  if (id >= 50 && id <= 60) return `UART${id - 50}`
   return `포트 ${id}`
+}
+
+/** 표에서 정렬할 때: VCP 먼저, 그다음 UART 번호 순 */
+export function portSortKey(id: number): number {
+  if (id === 20) return -1
+  if (id >= 0 && id <= 9) return id + 1
+  if (id >= 50 && id <= 60) return id - 50
+  return id
 }
 
 export const SERIAL_FUNCTION = {

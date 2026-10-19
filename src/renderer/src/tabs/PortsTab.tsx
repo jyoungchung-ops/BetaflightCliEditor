@@ -1,4 +1,4 @@
-import { baudLabel, describeSerialFunctions, portName } from '@shared/mapping/serial'
+import { baudLabel, describeSerialFunctions, portName, portSortKey } from '@shared/mapping/serial'
 import { Empty, MasterField, Panel, TabFrame } from '../ui/widgets'
 import { useSnap } from '../ui/snapshot'
 
@@ -20,7 +20,7 @@ const Check = ({ on }: { on: boolean }) => <span className={on ? 'yes' : 'no'}>{
 
 export function PortsTab() {
   const { snap, changed } = useSnap()
-  const ports = [...snap.serial].sort((a, b) => (a.id === 20 ? -1 : b.id === 20 ? 1 : a.id - b.id))
+  const ports = [...snap.serial].sort((a, b) => portSortKey(a.id) - portSortKey(b.id))
 
   return (
     <TabFrame title="포트" en="Ports">
@@ -45,10 +45,10 @@ export function PortsTab() {
                   const f = describeSerialFunctions(p.functionMask)
                   const gpsOn = f.sensors.includes('GPS')
                   return (
-                    <tr key={p.id} className={changed.has(`serial.${p.id}`) ? 'changed' : ''}>
+                    <tr key={p.id} className={changed.has(`serial.${p.name ?? p.id}`) ? 'changed' : ''}>
                       <th scope="row">
-                        {portName(p.id)}
-                        <span className="field-hint"> id {p.id}</span>
+                        {portName(p.id, p.name)}
+                        <span className="field-hint"> {p.name ? `serial ${p.name}` : `id ${p.id}`}</span>
                       </th>
                       <td>
                         <Check on={f.msp} /> {f.msp && <span className="muted small">{baudLabel(p.mspBaud)}</span>}
@@ -79,7 +79,6 @@ export function PortsTab() {
       </Panel>
 
       <Panel title="관련 설정">
-        <MasterField name="displayport_msp_serial" label="MSP DisplayPort 포트" format={(v) => (Number(v) < 0 ? '자동' : portName(Number(v)))} />
         <MasterField name="serialrx_halfduplex" label="Serial RX 반이중" />
         <MasterField name="serialmsp_halfduplex" label="MSP 반이중" />
         <MasterField name="tlm_halfduplex" label="텔레메트리 반이중" />
