@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { axisRates, maxRate, rateAt, supportsRateType } from '@shared/mapping/rates'
+import { actualRateAt, axisRates, maxRate, rateAt, supportsRateType, toActual, withRateDefaults } from '@shared/mapping/rates'
 import { PID_PROFILE_SHOWN, RATE_PROFILE_SHOWN } from '@shared/mapping/tabKeys'
 import { Columns, Field, KeyHint, MasterField, Panel, TabFrame, num } from '../ui/widgets'
 import { useSnap } from '../ui/snapshot'
@@ -351,11 +351,12 @@ function rateColumns(type: string): { key: 'rc_rate' | 'srate' | 'expo'; label: 
   }
 }
 
-function RateGraph({ type, profile }: { type: string; profile: Record<string, string> }) {
+function RateGraph({ type, profile, overlayActual }: { type: string; profile: Record<string, string>; overlayActual?: boolean }) {
   const W = 420
   const H = 260
   const PAD = { l: 44, r: 12, t: 12, b: 26 }
   const maxima = AXES.map(([a]) => maxRate(type, axisRates(profile, a)) ?? 0)
+  const actuals = AXES.map(([a]) => (overlayActual ? toActual(type, axisRates(profile, a)) : null))
   const top = Math.max(200, Math.ceil(Math.max(...maxima) / 200) * 200)
   const sx = (x: number) => PAD.l + x * (W - PAD.l - PAD.r)
   const sy = (y: number) => H - PAD.b - (y / top) * (H - PAD.t - PAD.b)
@@ -385,6 +386,13 @@ function RateGraph({ type, profile }: { type: string; profile: Record<string, st
           })
           return <polyline key={a} points={pts.join(' ')} fill="none" stroke={AXIS_COLORS[a]} strokeWidth="2" />
         })}
+        {/* Actual 환산 곡선 (점선) — 원래 곡선과 얼마나 겹치는지 보여 준다 */}
+        {AXES.map(([a], i) => {
+          const act = actuals[i]
+          if (!act || act.exact) return null
+          const pts = Array.from({ length: 101 }, (_, j) => `${sx(j / 100).toFixed(1)},${sy(actualRateAt(act, j / 100)).toFixed(1)}`)
+          return <polyline key={`act-${a}`} points={pts.join(' ')} fill="none" stroke={AXIS_COLORS[a]} strokeWidth="1.5" strokeDasharray="4 3" opacity="0.9" />
+        })}
       </svg>
       <div className="legend">
         {AXES.map(([a, label], i) => (
@@ -393,24 +401,109 @@ function RateGraph({ type, profile }: { type: string; profile: Record<string, st
             {label} {Math.round(maxima[i])}°/s
           </span>
         ))}
-        <span className="muted">가로: 스틱 위치 · 세로: deg/s</span>
+        <span className="muted">
+          가로: 스틱 위치 · 세로: deg/s{actuals.some((a) => a && !a.exact) ? ' · 점선: Actual 환산' : ''}
+        </span>
       </div>
+    </>
+  )
+}
+
+type RateView = 'actual' | 'native'
+
+/** Actual 방식 값으로 보여 주는 표 (어떤 레이트 방식이든) */
+function ActualTable({ type, profile, n, filled }: { type: string; profile: Record<string, string>; n: number; filled: Set<string> }) {
+  const { changed } = useSnap()
+  const rows = AXES.map(([axis, label]) => ({ axis, label, act: toActual(type, axisRates(profile, axis)) }))
+  if (rows.some((r) => !r.act)) return <p className="muted">{type} 방식은 Actual로 환산하지 않습니다.</p>
+  const exact = type === 'ACTUAL'
+  const worst = Math.max(...rows.map((r) => r.act!.maxError))
+  const cell = (axis: string, field: string, text: string) => {
+    const k = `${axis}_${field}`
+    return (
+      <span
+        className={'value-box' + (exact && changed.has(`rate.${n}.${k}`) ? ' cell-changed' : '') + (exact && filled.has(k) ? ' default-value' : '')}
+        title={exact ? k : '환산값'}
+      >
+        {exact ? '' : '≈ '}
+        {text}
+      </span>
+    )
+  }
+  return (
+    <>
+      <table className="grid-table">
+        <thead>
+          <tr>
+            <th className="left">축</th>
+            <th>중앙 감도</th>
+            <th>최대 레이트</th>
+            <th>엑스포</th>
+            <th>제한</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ axis, label, act }) => (
+            <tr key={axis}>
+              <th scope="row">{label}</th>
+              <td>{cell(axis, 'rc_rate', `${Math.round(act!.center)}°/s`)}</td>
+              <td>{cell(axis, 'srate', `${Math.round(act!.max)}°/s`)}</td>
+              <td>{cell(axis, 'expo', act!.expo.toFixed(2))}</td>
+              <td className={changed.has(`rate.${n}.${axis}_rate_limit`) ? 'yes' : ''}>{profile[`${axis}_rate_limit`] ?? '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!exact && (
+        <p className="muted small">
+          {type} 값을 Actual 방식으로 환산했습니다. 중앙 감도·최대 레이트는 정확하고, 엑스포는 곡선이 가장 비슷한 값입니다
+          (최대 차이 {Math.round(worst)}°/s). 같은 느낌을 Actual로 넣으려면:{' '}
+          {rows.map(({ axis, label, act }) => `${label} ${act!.cli.rc_rate}/${act!.cli.srate}/${act!.cli.expo}`).join(' · ')}
+          <span className="field-hint"> (rc_rate / srate / expo)</span>
+        </p>
+      )}
     </>
   )
 }
 
 function Rates({ n }: { n: number }) {
   const { snap, changed } = useSnap()
-  const profile = snap.rateProfiles[n] ?? {}
-  const type = profile.rates_type ?? 'BETAFLIGHT'
+  const raw = snap.rateProfiles[n] ?? {}
+  // diff만 있으면 기본값인 레이트는 적혀 있지 않다 → 펌웨어 기본값으로 채워 보여 준다
+  const diffOnly = !snap.raw.dumpAll.trim()
+  const { profile, filled } = diffOnly ? withRateDefaults(raw) : { profile: raw, filled: new Set<string>() }
+  const type = profile.rates_type ?? 'ACTUAL'
   const cols = rateColumns(type)
+  const [view, setView] = useState<RateView>('actual')
   const R = (props: Omit<Parameters<typeof ProfileField>[0], 'kind' | 'n'>) => <ProfileField kind="rate" n={n} {...props} />
 
   return (
     <>
       <Columns>
-        <Panel title="레이트" right={`레이트 프로필 ${n + 1}`}>
-          <R name="rates_type" label="레이트 방식" />
+        <Panel
+          title="레이트"
+          right={
+            type === 'ACTUAL' ? (
+              `레이트 프로필 ${n + 1}`
+            ) : (
+              <span className="seg" role="group" aria-label="표시 방식">
+                <button type="button" className={view === 'actual' ? 'on' : ''} aria-pressed={view === 'actual'} onClick={() => setView('actual')}>
+                  Actual 환산
+                </button>
+                <button type="button" className={view === 'native' ? 'on' : ''} aria-pressed={view === 'native'} onClick={() => setView('native')}>
+                  {type} 원래 값
+                </button>
+              </span>
+            )
+          }
+        >
+          {raw.rates_type !== undefined ? <R name="rates_type" label="레이트 방식" /> : <Field label="레이트 방식" value={type} hint="diff에 없음 = 펌웨어 기본값" />}
+          {filled.size > 0 && (
+            <p className="muted small">diff에 없는 레이트 값은 펌웨어 기본값(ACTUAL 7 / 67 / 0)으로 채워 흐리게 표시했습니다.</p>
+          )}
+          {view === 'actual' || type === 'ACTUAL' ? (
+            <ActualTable type={type} profile={profile} n={n} filled={filled} />
+          ) : (
           <table className="grid-table">
             <thead>
               <tr>
@@ -449,11 +542,12 @@ function Rates({ n }: { n: number }) {
               })}
             </tbody>
           </table>
+          )}
           {!supportsRateType(type) && <p className="muted small">{type} 방식은 최대 속도·그래프를 계산하지 않습니다.</p>}
         </Panel>
 
         <Panel title="레이트 곡선">
-          {supportsRateType(type) ? <RateGraph type={type} profile={profile} /> : <p className="muted">지원하지 않는 레이트 방식</p>}
+          {supportsRateType(type) ? <RateGraph type={type} profile={profile} overlayActual={view === 'actual'} /> : <p className="muted">지원하지 않는 레이트 방식</p>}
         </Panel>
 
         <Panel title="스로틀">

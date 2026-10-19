@@ -1,13 +1,13 @@
+import { receiverMode } from '@shared/mapping/receiver'
+import { portName, SERIAL_FUNCTION } from '@shared/mapping/serial'
 import { Columns, Empty, Field, KeyHint, MasterField, MasterToggle, Panel, TabFrame } from '../ui/widgets'
 import { useSnap } from '../ui/snapshot'
 
-const RX_MODES: [string, string][] = [
-  ['RX_SERIAL', '시리얼 수신기 (UART)'],
-  ['RX_SPI', 'SPI 수신기 (내장)'],
-  ['RX_PPM', 'PPM'],
-  ['RX_PARALLEL_PWM', 'PWM'],
-  ['RX_MSP', 'MSP']
-]
+const MODE_HINT: Record<string, string | undefined> = {
+  serial: '기능 줄이 없어 Serial RX 포트로 추정 (diff만 있는 파일)',
+  setting: '기능 줄이 없어 SPI 설정으로 추정',
+  unknown: 'diff에는 기본값이 적히지 않아 알 수 없음'
+}
 
 const MAP_LETTERS: Record<string, string> = {
   A: '롤 (A)',
@@ -19,8 +19,10 @@ const mapLabel = (c: string) => MAP_LETTERS[c] ?? (/\d/.test(c) ? `AUX${c}` : c)
 
 export function ReceiverTab() {
   const { snap, m, changed } = useSnap()
-  const mode = RX_MODES.find(([f]) => snap.features[f])
-  const rxModeKey = mode ? `feature.${mode[0]}` : undefined
+  const mode = receiverMode(snap.features, snap.serial, snap.master)
+  const rxModeKey = mode.feature ? `feature.${mode.feature}` : undefined
+  const rxPorts = snap.serial.filter((p) => (p.functionMask & SERIAL_FUNCTION.RX_SERIAL) !== 0)
+  const diffOnly = !snap.raw.dumpAll.trim()
   const rssi = m('rssi_channel')
   const map = snap.rxMap
 
@@ -28,9 +30,23 @@ export function ReceiverTab() {
     <TabFrame title="수신기" en="Receiver">
       <Columns>
         <Panel title="수신기">
-          <Field label="수신기 방식" value={mode?.[1] ?? '없음'} k={rxModeKey} />
-          {snap.features.RX_SERIAL && <MasterField name="serialrx_provider" label="시리얼 수신기 프로토콜" />}
-          {snap.features.RX_SPI && <MasterField name="rx_spi_protocol" label="SPI 수신기 프로토콜" />}
+          <Field label="수신기 방식" value={mode.label} k={rxModeKey} hint={MODE_HINT[mode.source]} />
+          {mode.feature === 'RX_SERIAL' && (
+            <Field
+              label="수신기 포트"
+              value={rxPorts.length ? rxPorts.map((p) => portName(p.id, p.name)).join(', ') : undefined}
+              k={rxPorts.map((p) => `serial.${p.name ?? p.id}`)}
+              hint="포트 탭의 Serial RX"
+            />
+          )}
+          {/* 프로토콜은 기능 줄과 상관없이 값이 있으면 보여 준다 */}
+          {m('serialrx_provider') !== undefined ? (
+            <MasterField name="serialrx_provider" label="시리얼 수신기 프로토콜" />
+          ) : (
+            mode.feature === 'RX_SERIAL' &&
+            diffOnly && <Field label="시리얼 수신기 프로토콜" value="펌웨어 기본값" hint={<KeyHint name="serialrx_provider" hint="diff에 없음 = 바꾸지 않음" />} />
+          )}
+          <MasterField name="rx_spi_protocol" label="SPI 수신기 프로토콜" />
           <MasterField name="serialrx_inverted" label="신호 반전" />
           <MasterField name="serialrx_halfduplex" label="반이중" />
           <MasterField name="crsf_use_negotiated_baud" label="CRSF 보드레이트 협상" />

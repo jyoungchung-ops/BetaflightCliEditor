@@ -4,7 +4,7 @@ import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { mkdir, readFile, stat, writeFile } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import { IPC, type FileResult, type OpenedFile } from '@shared/ipc'
-import { SAVE_EXT, diffFileName, saveFileName } from '@shared/files'
+import { SAVE_EXT, diffFileName, normalizeSavePath, saveFileName } from '@shared/files'
 
 const MAX_OPEN_BYTES = 20 * 1024 * 1024
 const OPEN_EXTS = ['.json', '.txt']
@@ -78,12 +78,12 @@ export function registerFileIpc(): void {
         title: '기체 설정 저장',
         defaultPath: join(await saveDir(), saveFileName(payload.craftName)),
         filters: [
-          { name: 'FC CLI Viewer 파일', extensions: ['bfview.json'] },
+          { name: 'FC CLI Viewer 파일', extensions: ['json'] },
           { name: '모든 파일', extensions: ['*'] }
         ]
       })
       if (r.canceled || !r.filePath) return { ok: false, canceled: true, message: '' }
-      const path = r.filePath.toLowerCase().endsWith('.json') ? r.filePath : r.filePath + SAVE_EXT
+      const path = normalizeSavePath(r.filePath)
       await writeFile(path, payload.json, 'utf8')
       await rememberDir(path)
       return { ok: true, value: path }

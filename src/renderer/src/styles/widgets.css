@@ -528,3 +528,29 @@ tr.dim th {
 .subhead:first-child {
   margin-top: 0;
 }
+
+/* ── 표시 방식 전환 (레이트: Actual 환산 / 원래 값) ─────────────────────── */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.seg button {
+  padding: 2px 10px;
+  border: 0;
+  background: var(--bg-field);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.seg button.on {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+/* diff에 없어 펌웨어 기본값으로 채운 값 */
+.value-box.default-value {
+  color: var(--text-dim);
+  font-style: italic;
+}

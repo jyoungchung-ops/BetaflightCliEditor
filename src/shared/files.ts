@@ -26,6 +26,16 @@ export function sanitizeFileName(name: string): string {
 }
 
 export const saveFileName = (craftName: string) => sanitizeFileName(craftName) + SAVE_EXT
+
+/**
+ * 저장창이 돌려준 경로를 <이름>.bfview.json 으로 정리한다.
+ * Windows 저장창은 두 단계 확장자(.bfview.json)를 다시 붙이는 일이 있어 "X.bfview.bfview.json"이 생겼다.
+ * 반복된 .bfview 는 하나로, 확장자가 없으면 .bfview.json 을 붙인다. 사용자가 고른 다른 .json 이름은 그대로 둔다.
+ */
+export function normalizeSavePath(path: string): string {
+  const collapsed = path.replace(/(\.bfview(\.json)?)+$/i, SAVE_EXT)
+  return /\.json$/i.test(collapsed) ? collapsed : collapsed + SAVE_EXT
+}
 export const diffFileName = (craftName: string) => sanitizeFileName(craftName) + '_diff.txt'
 
 export interface SavedFile extends CraftSnapshot {
