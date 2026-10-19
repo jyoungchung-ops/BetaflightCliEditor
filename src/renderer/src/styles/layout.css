@@ -1,0 +1,431 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── 상단 바 ─────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  padding: 0 16px;
+  background: var(--bg-topbar);
+  border-bottom: 2px solid var(--accent);
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 188px;
+}
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  box-shadow: inset 0 0 0 3px var(--bg-topbar), inset 0 0 0 7px var(--accent);
+}
+.brand-name {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.2px;
+}
+
+.topbar-info {
+  display: flex;
+  gap: 28px;
+  flex: 1;
+  min-width: 0;
+}
+.info-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.info-label {
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.info-value {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.craft-name {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── 버튼 ─────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+/* ── 사이드바 ─────────────────────────────── */
+.sidebar {
+  width: 204px;
+  flex-shrink: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 16px;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+.sidebar-item:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.sidebar-item.active {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── 본문 / 탭 ─────────────────────────────── */
+.content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 20px 24px 32px;
+}
+
+.tab-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  color: var(--accent);
+}
+.tab-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tab-en {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+/* ── 패널 (Betaflight App의 박스) ─────────────────────────────── */
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.panel-title {
+  padding: 7px 12px;
+  background: var(--bg-panel-title);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.panel-body {
+  padding: 12px;
+}
+.panel-body.empty {
+  padding: 28px 16px;
+  text-align: center;
+}
+.panel-body.empty p {
+  margin: 4px 0;
+}
+.muted {
+  color: var(--text-muted);
+}
+.small {
+  font-size: 12px;
+}
+
+/* ── 연결 화면 ─────────────────────────────── */
+.connect {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 64px 16px;
+  overflow: auto;
+}
+.connect-card {
+  width: 100%;
+  max-width: 560px;
+}
+.connect-card .panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+.field-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.row.actions {
+  margin-top: 6px;
+}
+.select {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  background: var(--bg-field);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font: inherit;
+}
+
+.progress-steps {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.progress-steps li {
+  padding-left: 22px;
+  position: relative;
+  color: var(--text-dim);
+}
+.progress-steps li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--text-dim);
+}
+.progress-steps li.active {
+  color: var(--text);
+}
+.progress-steps li.active::before {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.progress-steps li.done {
+  color: var(--text-muted);
+}
+.progress-steps li.done::before {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+code {
+  font-family: var(--mono);
+}
+
+/* ── 알림 ─────────────────────────────── */
+.notice {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-field);
+}
+.notice.error {
+  border-color: var(--danger);
+  color: #ffb3aa;
+}
+.notice.warn,
+.notice.info {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.notice.banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.link {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ── 입력 / 이름 편집 ─────────────────────────────── */
+.text-input {
+  height: 32px;
+  padding: 0 10px;
+  background: var(--bg-field);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font: inherit;
+}
+.text-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.craft-name-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.craft-name-btn:hover {
+  color: var(--accent);
+}
+.craft-name-input {
+  height: 24px;
+  width: 220px;
+}
+
+/* ── 모달 ─────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+}
+.modal {
+  width: 100%;
+  max-width: 440px;
+  margin: 0;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+.modal-body .text-input {
+  width: 100%;
+  font-size: 15px;
+}
+.modal-body p {
+  margin: 0;
+}
+.modal-actions {
+  justify-content: flex-end;
+}
+
+/* ── 드래그 / 알림 ─────────────────────────────── */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(27, 27, 27, 0.85);
+  border: 3px dashed var(--accent);
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  border: 1px solid var(--ok);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  word-break: break-all;
+}
+.toast.error {
+  border-color: var(--danger);
+  color: #ffb3aa;
+}
+
+/* ── 키·값 표 ─────────────────────────────── */
+.kv {
+  border-collapse: collapse;
+  width: 100%;
+}
+.kv th,
+.kv td {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.kv th {
+  width: 140px;
+  color: var(--text-muted);
+  font-weight: normal;
+}

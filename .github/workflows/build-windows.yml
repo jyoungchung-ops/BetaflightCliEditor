@@ -1,0 +1,49 @@
+name: Windows 빌드
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write # 태그 빌드에서 Release 초안 만들기
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # package.json의 allowScripts에 따라 electron 바이너리만 내려받는다 (serialport는 prebuild 사용)
+      - run: npm ci
+
+      - name: 타입 검사
+        run: npm run typecheck
+
+      - name: 테스트 (파서·시리얼 화이트리스트·탭)
+        run: npm test
+
+      - name: exe 빌드 (NSIS 설치판 + 포터블)
+        run: npm run dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FC-CLI-Viewer-windows
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+          if-no-files-found: error
+
+      # v로 시작하는 태그를 올리면 GitHub Release에 exe를 붙인다
+      - name: 릴리스
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.exe
+          draft: true

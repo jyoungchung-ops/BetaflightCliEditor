@@ -1,0 +1,2 @@
+# Betaflight / STM32F405 (S405) 4.5.2 Mar 11 2025 / 10:02:41 (a1b2c3d4e) MSP API: 1.46
+# config: manufacturer_id: BEFH, board_name: BETAFPVF405, version: 4c8a7f3a, date: 2024-05-04T04:57:12Z

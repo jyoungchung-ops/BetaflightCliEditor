@@ -1,0 +1,70 @@
+/* 다크 테마 토큰. Betaflight App의 어두운 배경 + 노란 강조색 분위기를 따른다. */
+:root {
+  --bg: #1b1b1b;
+  --bg-sidebar: #232323;
+  --bg-topbar: #141414;
+  --bg-panel: #2a2a2a;
+  --bg-panel-title: #333333;
+  --bg-field: #1f1f1f;
+  --bg-hover: #303030;
+
+  --border: #3a3a3a;
+  --border-strong: #4a4a4a;
+
+  --text: #e6e6e6;
+  --text-muted: #9a9a9a;
+  --text-dim: #6e6e6e;
+
+  --accent: #ffbb00;
+  --accent-hover: #ffcc33;
+  --accent-text: #1b1b1b;
+  --accent-soft: rgba(255, 187, 0, 0.12);
+
+  --changed: #ffbb00;
+  --ok: #59aa29;
+  --danger: #e2493b;
+
+  --radius: 4px;
+  --font: 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  --mono: 'Cascadia Mono', Consolas, 'D2Coding', monospace;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 5px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

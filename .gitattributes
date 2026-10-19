@@ -1,0 +1,9 @@
+# 소스는 LF로 저장
+* text=auto eol=lf
+
+# CLI 덤프 픽스처는 받은 그대로 (Betaflight CLI는 CRLF)
+fixtures/**/*.txt -text
+
+# 바이너리
+*.ico binary
+*.png binary

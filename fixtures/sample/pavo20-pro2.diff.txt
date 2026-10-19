@@ -1,0 +1,130 @@
+# diff all
+
+# version
+# Betaflight / STM32F405 (S405) 4.5.2 Mar 11 2025 / 10:02:41 (a1b2c3d4e) MSP API: 1.46
+# config rev: 4c8a7f3
+
+# start the command batch
+batch start
+
+# reset configuration to default settings
+defaults nosave
+
+board_name BETAFPVF405
+manufacturer_id BEFH
+mcu_id 0039002b3133510a33383738
+signature 
+
+# name: Pavo20 Pro2
+
+# beeper
+beeper -ON_USB
+
+# beacon
+beacon RX_LOST
+
+# serial
+serial 1 64 115200 57600 0 115200
+serial 2 131073 115200 57600 0 115200
+
+# aux
+aux 0 0 0 1700 2100 0 0
+aux 1 1 1 1300 1700 0 0
+aux 2 2 1 1700 2100 0 0
+aux 3 35 2 1700 2100 0 0
+aux 4 26 3 1700 2100 0 0
+
+# adjrange
+adjrange 0 0 4 900 2100 12 4 0 0
+
+# master
+set serialrx_provider = CRSF
+set blackbox_sample_rate = 1/2
+set dshot_bidir = ON
+set motor_poles = 12
+set align_board_yaw = 90
+set bat_capacity = 1100
+set osd_vbat_pos = 2616
+set osd_rssi_pos = 2088
+set osd_link_quality_pos = 2082
+set osd_tim_2_pos = 3630
+set osd_flymode_pos = 2552
+set osd_crosshairs_pos = 2361
+set osd_current_pos = 2594
+set osd_mah_drawn_pos = 2562
+set osd_craft_name_pos = 2102
+set osd_warnings_pos = 2483
+set osd_avg_cell_voltage_pos = 3117
+set osd_displayport_device = MSP
+set displayport_msp_serial = 2
+set vcd_video_system = HD
+set craft_name = Pavo20 Pro2
+set pilot_name = Chloe
+set debug_mode = GYRO_SCALED
+set gyro_1_sensor_align = CW90
+set gyro_1_align_yaw = 900
+
+profile 0
+
+# profile 0
+set profile_name = Default
+
+profile 1
+
+# profile 1
+set profile_name = Cine
+set p_pitch = 55
+set i_pitch = 90
+set d_pitch = 42
+set p_roll = 52
+set i_roll = 85
+set d_roll = 38
+set p_yaw = 50
+set i_yaw = 85
+
+profile 2
+
+# profile 2
+
+profile 3
+
+# profile 3
+
+# restore original profile selection
+profile 1
+
+rateprofile 0
+
+# rateprofile 0
+
+rateprofile 1
+
+# rateprofile 1
+set rateprofile_name = Smooth
+set roll_rc_rate = 5
+set pitch_rc_rate = 5
+set yaw_rc_rate = 5
+set roll_expo = 35
+set pitch_expo = 35
+set yaw_expo = 20
+set roll_srate = 50
+set pitch_srate = 50
+set yaw_srate = 45
+
+rateprofile 2
+
+# rateprofile 2
+
+rateprofile 3
+
+# rateprofile 3
+
+# restore original rateprofile selection
+rateprofile 1
+
+# end the command batch
+batch end
+
+# save configuration
+save
+# 
