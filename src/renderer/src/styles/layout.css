@@ -473,3 +473,45 @@ code {
   background: var(--edited);
   border-radius: 8px;
 }
+
+/* 내보내기 메뉴 */
+.menu-wrap {
+  position: relative;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  min-width: 300px;
+  padding: 4px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 6px 10px;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.menu-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.menu-item:disabled {
+  color: var(--text-dim);
+  cursor: default;
+}
+.menu-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}

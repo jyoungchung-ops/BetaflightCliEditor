@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Eye, FileDown, Home, Pencil, Redo2, RotateCcw, Save, SquarePen, Undo2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, Eye, FileDown, Home, Pencil, Redo2, RotateCcw, Save, SquarePen, Undo2 } from 'lucide-react'
 import { saveFileName } from '@shared/files'
 
 interface Props {
@@ -13,6 +13,8 @@ interface Props {
   onSave?(): void
   onExport?(): void
   onHome?(): void
+  /** v2 편집 내보내기 */
+  exports?: ExportMenu
   edit?: EditBar
 }
 
@@ -28,6 +30,67 @@ export interface EditBar {
   onUndo(): void
   onRedo(): void
   onRevertAll(): void
+}
+
+export interface ExportMenu {
+  /** 내보낼 수 없는 이유 (없으면 가능) */
+  changesBlocked?: string
+  fullDiffBlocked?: string
+  onChanges(): void
+  onFullDiff(): void
+}
+
+/** 내보내기 메뉴: 원문 diff · 변경분 CLI · 편집 반영 diff */
+function ExportButton({ canExport, onExport, menu }: { canExport?: boolean; onExport?(): void; menu?: ExportMenu }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    window.addEventListener('mousedown', close)
+    return () => window.removeEventListener('mousedown', close)
+  }, [open])
+  if (!menu)
+    return (
+      <button type="button" className="btn" disabled={!canExport} onClick={onExport} title="diff all 원문을 txt로">
+        <FileDown size={16} aria-hidden />
+        원문 내보내기
+      </button>
+    )
+  const item = (label: string, hint: string, blocked: string | undefined, run?: () => void) => (
+    <button
+      type="button"
+      role="menuitem"
+      className="menu-item"
+      disabled={Boolean(blocked) || !run}
+      title={blocked}
+      onClick={() => {
+        setOpen(false)
+        run?.()
+      }}
+    >
+      <span>{label}</span>
+      <span className="menu-hint">{blocked ?? hint}</span>
+    </button>
+  )
+  return (
+    <div className="menu-wrap" ref={ref}>
+      <button type="button" className="btn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <FileDown size={16} aria-hidden />
+        내보내기
+        <ChevronDown size={14} aria-hidden />
+      </button>
+      {open && (
+        <div className="menu" role="menu">
+          {item('변경분 CLI (.txt)', 'Betaflight App CLI 탭에 붙여 넣기', menu.changesBlocked, menu.onChanges)}
+          {item('편집 반영 전체 diff (.txt)', '원본 diff all + 편집 — 백업용', menu.fullDiffBlocked, menu.onFullDiff)}
+          {item('원문 diff all (.txt)', '읽은 그대로, 편집 미반영', canExport ? undefined : 'diff all 원문이 없습니다', onExport)}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export const NO_SCHEMA_MESSAGE = '기체를 한 번 연결해 범위 정보를 읽어야 편집할 수 있습니다'
@@ -119,7 +182,7 @@ function CraftName({ name, onRename }: { name: string; onRename?(n: string): voi
   )
 }
 
-export function TopBar({ craftName, firmware, readAt, offlineFile, canExport, onRename, onSave, onExport, onHome, edit }: Props) {
+export function TopBar({ craftName, firmware, readAt, offlineFile, canExport, onRename, onSave, onExport, onHome, edit, exports }: Props) {
   const loaded = craftName !== null
 
   return (
@@ -154,10 +217,7 @@ export function TopBar({ craftName, firmware, readAt, offlineFile, canExport, on
             처음으로
           </button>
         )}
-        <button type="button" className="btn" disabled={!loaded || !canExport} onClick={onExport} title="diff all 원문을 txt로">
-          <FileDown size={16} aria-hidden />
-          원문 내보내기
-        </button>
+        <ExportButton canExport={loaded && canExport} onExport={onExport} menu={loaded ? exports : undefined} />
         <button type="button" className="btn btn-primary" disabled={!loaded} onClick={onSave}>
           <Save size={16} aria-hidden />
           저장

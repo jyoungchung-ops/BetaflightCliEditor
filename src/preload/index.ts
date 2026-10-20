@@ -18,6 +18,7 @@ const api: BfViewApi = {
 
   saveSnapshot: (craftName, json) => ipcRenderer.invoke(IPC.saveSnapshot, { craftName, json }),
   exportDiff: (craftName, text) => ipcRenderer.invoke(IPC.exportDiff, { craftName, text }),
+  exportText: (fileName, text, title) => ipcRenderer.invoke(IPC.exportText, { fileName, text, title }),
   openFile: () => ipcRenderer.invoke(IPC.openFile),
   readDroppedFile: (file) => ipcRenderer.invoke(IPC.readDroppedFile, webUtils.getPathForFile(file)),
   takeLaunchFile: () => ipcRenderer.invoke(IPC.takeLaunchFile),

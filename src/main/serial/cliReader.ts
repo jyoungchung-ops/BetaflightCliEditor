@@ -33,6 +33,16 @@ const GET_TIMEOUT = 3000
 /** 응답 끝 프롬프트: "\r\n# " (\r 제거 후 "\n# ") */
 const endsWithPrompt = (s: string) => /\n# $/.test(s)
 
+/**
+ * 응답이 끝났는가. diff all / dump all 은 "# master" 같은 주석 줄이 있어, 조각이 "\n# " 에서 끊긴 채
+ * 잠시 멈추면 프롬프트로 오인할 수 있다. 이 둘은 언제나 save 줄로 끝나므로 save + 프롬프트를 기다린다
+ * (SITL 4.5.3 에서 같은 판정을 쓰는 테스트 도구의 dump 가 중간에 잘린 일이 있었다).
+ */
+export function responseComplete(cmd: string, s: string): boolean {
+  if (cmd === 'diff all' || cmd === 'dump all') return /\nsave\n[\n# ]*# $/.test(s)
+  return endsWithPrompt(s)
+}
+
 interface Waiter {
   done(s: string): boolean
   resolve(): void
@@ -167,7 +177,7 @@ export class CliReader {
   /** 명령 실행 후 응답 본문(에코 줄과 끝 프롬프트 제외)을 돌려준다 */
   async exec(cmd: string, index?: number): Promise<string> {
     const timeout = this.opts.timeouts[cmd] ?? GET_TIMEOUT
-    const out = await this.run(cmd, timeout, endsWithPrompt, index)
+    const out = await this.run(cmd, timeout, (t) => responseComplete(cmd, t), index)
     return cleanResponse(out, cmd)
   }
 

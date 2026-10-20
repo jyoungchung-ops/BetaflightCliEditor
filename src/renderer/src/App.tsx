@@ -3,6 +3,7 @@ import { TABS, type TabId } from '@shared/tabs'
 import { buildSnapshot } from '@shared/cli/parser'
 import type { CraftSnapshot, RawCli } from '@shared/cli/types'
 import type { FileResult, OpenedFile } from '@shared/ipc'
+import { changesFileName, changesFileText, fullDiffFileName, fullDiffText } from '@shared/edit/commands'
 import { editsOfSavedFile, FileFormatError, fromSavedFile, looksLikeSavedFile, rawFromCliText, toSavedFile } from '@shared/files'
 import {
   countByTab,
@@ -228,6 +229,24 @@ export default function App() {
     else if (!r.canceled) setToast({ kind: 'error', text: `내보내기 실패: ${r.message}` })
   }
 
+  const errorCount = Object.keys(errors).length
+  const exportBlocked = editCount === 0 ? '편집한 값이 없습니다' : errorCount > 0 ? `오류 ${errorCount}개를 먼저 고치세요` : undefined
+
+  async function exportEdited(kind: 'changes' | 'full') {
+    if (!loaded || exportBlocked) return
+    try {
+      const now = new Date()
+      const text = kind === 'changes' ? changesFileText(loaded.snap, edits, appVersion) : fullDiffText(loaded.snap, edits, appVersion)
+      if (text === null) return
+      const name = kind === 'changes' ? changesFileName(loaded.snap.craftName, now) : fullDiffFileName(loaded.snap.craftName, now)
+      const r = await window.bfview.exportText(name, text, kind === 'changes' ? '변경분 CLI 내보내기' : '편집 반영 diff 내보내기')
+      if (r.ok) setToast({ kind: 'ok', text: `내보냈습니다: ${r.value}` })
+      else if (!r.canceled) setToast({ kind: 'error', text: `내보내기 실패: ${r.message}` })
+    } catch (e) {
+      setToast({ kind: 'error', text: (e as Error).message })
+    }
+  }
+
   function rename(craftName: string) {
     if (loaded) setLoaded({ ...loaded, snap: { ...loaded.snap, craftName }, dirty: true })
   }
@@ -250,13 +269,19 @@ export default function App() {
         onSave={() => void save()}
         onExport={() => void exportDiff()}
         onHome={goHome}
+        exports={{
+          changesBlocked: exportBlocked,
+          fullDiffBlocked: exportBlocked ?? (base?.raw.diffAll.trim() ? undefined : 'diff all 원문이 없는 파일입니다'),
+          onChanges: () => void exportEdited('changes'),
+          onFullDiff: () => void exportEdited('full')
+        }}
         edit={
           base
             ? {
                 editing,
                 canEdit,
                 count: editCount,
-                errorCount: Object.keys(errors).length,
+                errorCount,
                 canUndo: editState.past.length > 0,
                 canRedo: editState.future.length > 0,
                 onToggle: () => setEditing((v) => !v),

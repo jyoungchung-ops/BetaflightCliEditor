@@ -10,7 +10,7 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
 - **0단계 결론 전에는 기체에 쓰는 코드(SPEC 13절 5단계)를 만들지 않는다.** 0단계 결과는 `docs/cli-compat.md`에 적는다.
 - 앱은 항상 보기 모드로 시작한다. 편집은 상단 바 [편집] 토글, 쓰기는 편집 모드의 [기체에 쓰기] + 11절 절차(안전 확인 → 읽기 → 일치 검사 → 백업 → 미리보기·이름 입력 → 전송 → save → 재검증)로만.
 - 읽기 화이트리스트는 그대로 둔다. 쓰기 송신은 **별도 함수 `writeSession`** 하나로만 하고, 11절 절차 안에서만 호출된다. 소스 검사 테스트로 이를 지킨다(v1의 `tests/cliReader.test.ts` 방식).
-- `writeSession`이 보낼 수 있는 것: SPEC 10절 표의 생성 명령(`set`, `feature`, `aux`, `adjrange`, `serial`, `map`, `rxfail`) + `profile`, `rateprofile`, `batch`, `save` 뿐. 그 밖은 차단(12절 목록: `defaults`, `bl`, `dfu`, `flash_erase`, `resource`, `timer`, `dma`, `msc`, `serialpassthrough`, `motor`, `play_sound`, `vtx_info` 등).
+- `writeSession`이 보낼 수 있는 것: SPEC 10절 표의 생성 명령(`set`, `feature`, `aux`, `adjrange`, `serial`, `map`, `rxfail`) + `profile`, `rateprofile`, `battery_profile`(2026.6+), `batch start`, `save` 뿐 (`isGeneratedCommand`). 그 밖은 차단(12절 목록: `defaults`, `bl`, `dfu`, `flash_erase`, `resource`, `timer`, `dma`, `msc`, `serialpassthrough`, `motor`, `play_sound`, `vtx_info` 등).
 - MSP로 쓰지 않는다. 2026.6+의 `MSP2_CLI_SETTING`(0x3010)은 페이로드에 `=`가 있으면 값을 바꾸므로 보내지 않는다(`docs/cli-compat.md` ⑤).
 - 기체에는 바뀐 값만 보낸다. 전체 dump로 덮어쓰지 않고, `defaults`를 쓰는 복원도 하지 않는다.
 - 명령 생성(`buildCommands`)은 파서의 역방향이다. 생성 → 파싱 왕복 테스트로 같은 값이 나와야 한다. serial 줄 등 펌웨어별 형식은 파서가 읽은 형식을 그대로 따른다.
@@ -52,7 +52,13 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
    - 끌기(모드 범위·OSD 요소)는 `setValue(..., { merge: true })`로 되돌리기 한 단계
    - USB VCP의 MSP 끄기는 오류(재연결 불가). 저장 파일에 `edits` 배열 저장, schema는 저장하지 않음(raw.get에서 다시 만듦)
    - 검사: `tests/edit.test.tsx`
-4~7. 대기
+4. 명령 생성·내보내기 — 완료
+   - `src/shared/edit/commands.ts`: `buildCommands()`(batch start → 줄 → master → profile/rateprofile/battery_profile → save, batch end 없음, 원래 활성 프로필 복원), 오류가 있으면 `EditValidationError`
+   - 내보내기: 변경분 `<이름>_changes_<날짜>.txt`, 편집 반영 전체 diff `<이름>_diff-edited_<날짜>.txt`(원본 diff 줄을 그 자리에서 바꿈). 상단 바 [내보내기] 메뉴, IPC `exportText`
+   - 검사: `tests/commands.test.ts`(왕복), `tests/sitl.paste.test.ts`(SITL 4개 버전 붙여 넣기 — `scripts/sitl/run-paste.ps1`)
+   - 2025.12+ `feature X`는 빌드에 없으면 `Unavailable X`(###ERROR 아님) → 5단계 응답 검사에 포함 (`docs/cli-compat.md`)
+   - 읽기 끝 판정: diff all/dump all 은 save 다음 프롬프트까지 기다림 (`responseComplete`)
+5~7. 대기
 
 ## v1 진행 상태 (SPEC 7절) — 완료, v0.1.0 배포
 1. 뼈대 — 완료

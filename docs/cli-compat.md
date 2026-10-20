@@ -179,6 +179,22 @@ SITL을 4.5.3 · 4.5.5 · 2025.12.5 · 2026.6.2로 빌드해(`make TARGET=SITL` 
 5. **스키마:** 읽기 화이트리스트에 인수 없는 `get`(정확히 `get` 한 단어)을 추가하면 범위·허용값을 0.4초 안에 받을 수 있다(SPEC 9절).
 6. 쓰기를 허용할 펌웨어는 실측한 계열(4.5.x, 2025.12.x, 2026.6.x)로 한정하고, 그 밖은 "이 펌웨어는 아직 쓰기를 지원하지 않습니다"로 막는다(SPEC 11절).
 
+### 4단계 SITL 실측 — 변경분 파일 붙여 넣기 (2026-10-21)
+`scripts/sitl/run-paste.ps1` → `tests/sitl.paste.test.ts`. 앱이 만든 변경분 파일(master·PID 2개 프로필·레이트 2개·배터리·aux·serial·feature·map·rxfail, 50개 안팎)을 한 줄씩 보내고 `dump all`로 대조. save는 보내지 않음.
+
+| | 4.5.3 | 4.5.5 | 2025.12.5 | 2026.6.2 |
+| --- | --- | --- | --- | --- |
+| 모든 줄 `###ERROR` 없음, dump 값 = 편집 값 | ✅ | ✅ | ✅ | ✅ |
+
+**`###ERROR` 없이 실패하는 응답** (5단계 응답 검사에 넣어야 함):
+- 2025.12+ `feature X`: 펌웨어에 빌드되지 않은 기능이면 **`Unavailable X`** 만 출력하고 바꾸지 않는다. `###ERROR`가 아니어서 batch 오류 플래그도 서지 않는다(save가 그대로 저장됨). 성공하면 `Enabled X` / `Disabled X`. dump에는 빌드되지 않은 기능도 `feature -X`로 나오므로 미리 알 수 없다.
+  - SITL 2025.12.5: RX_PPM·RX_SERIAL·GPS·OSD 등이 Unavailable. 4.5.x는 같은 명령을 받아들인다.
+- `rxfail 0 h`(스틱 채널에 유지)는 펌웨어가 받아들인다. 앱은 SPEC대로 막는다(더 엄격).
+
+**`###ERROR`가 나오는 것**: 없는 포트 `serial UART9 ...` → `PARSING FAILED`, `map XXXX1234` → `PARSING FAILED`, `profile 9` → `PROFILE OUTSIDE OF [0..3]`.
+
+**읽기 끝 판정 보강**: 같은 판정(프롬프트 `\n# ` + 150ms 조용)을 쓰던 테스트 도구에서 SITL 4.5.3 `dump all`이 `# ...` 주석 줄 경계에서 한 번 잘렸다. `diff all`/`dump all`은 항상 `save` 줄로 끝나므로, 앱 리더(`responseComplete`)는 이 둘에 한해 `save` 다음의 프롬프트를 기다린다.
+
 ## 2025.12 설정 변경과 파서·화면 대응 (3단계)
 
 SITL은 건너뛰었습니다. 대신 각 태그의 `src/main/cli/settings.c`에서 설정 이름과 섹션을 모두 뽑아 `fixtures/settings-names/{4.5.5,2025.12.5,2026.6.2}.json`에 두었습니다. 테스트(`tests/firmwareCompat.test.tsx`)는 **화면과 샘플이 쓰는 키 이름이 이 실제 목록에 있는지** 검사합니다.

@@ -166,6 +166,8 @@ export function validateEdit(base: CraftSnapshot, e: Edit): string | null {
   if (s) {
     const schema = base.schema?.[s.name]
     if (!schema) return '범위 정보가 없는 설정입니다'
+    if (/[\r\n\x00-\x1f]/.test(e.after)) return '사용할 수 없는 문자가 있습니다'
+    if (e.after !== e.after.trim()) return '앞뒤에 공백을 둘 수 없습니다'
     return validateValue(schema, e.after)
   }
   if (/[\r\n#;]/.test(e.after)) return '사용할 수 없는 문자가 있습니다'

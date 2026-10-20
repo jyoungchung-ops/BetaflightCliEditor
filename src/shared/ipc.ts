@@ -12,6 +12,7 @@ export const IPC = {
   readProgress: 'serial:progress',
   saveSnapshot: 'file:save',
   exportDiff: 'file:export-diff',
+  exportText: 'file:export-text',
   openFile: 'file:open',
   readDroppedFile: 'file:read-dropped',
   takeLaunchFile: 'file:take-launch',
@@ -50,6 +51,8 @@ export interface BfViewApi {
   saveSnapshot(craftName: string, json: string): Promise<FileResult<string>>
   /** diff all 원문을 <이름>_diff.txt 로 */
   exportDiff(craftName: string, text: string): Promise<FileResult<string>>
+  /** v2: 변경분·편집 반영 diff 를 txt 로 (fileName 은 기본 파일 이름, 경로 없이) */
+  exportText(fileName: string, text: string, title: string): Promise<FileResult<string>>
   openFile(): Promise<FileResult<OpenedFile>>
   /** 드래그한 File 객체를 읽는다 */
   readDroppedFile(file: File): Promise<FileResult<OpenedFile>>

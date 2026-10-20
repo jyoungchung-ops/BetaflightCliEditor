@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CliReader, cleanResponse } from '../src/main/serial/cliReader'
+import { CliReader, cleanResponse, responseComplete } from '../src/main/serial/cliReader'
 import { isAllowedCommand } from '../src/main/serial/whitelist'
 import { CliReadError, type CliTransport } from '../src/main/serial/transport'
 import { buildSnapshot } from '../src/shared/cli/parser'
@@ -114,6 +114,15 @@ describe('CLI 읽기 절차', () => {
     const diff = await reader.exec('diff all')
     expect(norm(diff)).toBe(norm(RESPONSES['diff all']))
   }, 20000)
+
+  it('diff all · dump all 은 save 뒤의 프롬프트에서만 끝난다 (주석 "# " 에서 멈춰도 계속 기다림)', () => {
+    const mid = 'diff all\n# version\n# Betaflight\n\n# '
+    expect(responseComplete('diff all', mid)).toBe(false)
+    expect(responseComplete('dump all', mid)).toBe(false)
+    expect(responseComplete('diff all', mid + 'save configuration\nsave\n\n# ')).toBe(true)
+    expect(responseComplete('dump all', 'x\nsave\n# \n# ')).toBe(true)
+    expect(responseComplete('version', 'version\n# Betaflight\n# ')).toBe(true)
+  })
 
   it('CLI 진입은 1회 재시도한다', async () => {
     const { fc, reader } = setup({ ignoreHashes: 1 })

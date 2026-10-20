@@ -4,7 +4,7 @@ import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { mkdir, readFile, stat, writeFile } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import { IPC, type FileResult, type OpenedFile } from '@shared/ipc'
-import { SAVE_EXT, diffFileName, normalizeSavePath, saveFileName } from '@shared/files'
+import { SAVE_EXT, diffFileName, normalizeSavePath, sanitizeFileName, saveFileName } from '@shared/files'
 
 const MAX_OPEN_BYTES = 20 * 1024 * 1024
 const OPEN_EXTS = ['.json', '.txt']
@@ -109,6 +109,28 @@ export function registerFileIpc(): void {
       return errorResult(err)
     }
   })
+
+  ipcMain.handle(
+    IPC.exportText,
+    async (e, payload: { fileName: string; text: string; title: string }): Promise<FileResult<string>> => {
+      try {
+        if (typeof payload?.text !== 'string' || typeof payload?.fileName !== 'string') throw new Error('잘못된 요청')
+        // 렌더러가 준 이름은 파일 이름으로만 쓴다 (경로·예약어 제거)
+        const name = sanitizeFileName(basename(payload.fileName).replace(/\.txt$/i, '')) + '.txt'
+        const r = await dialog.showSaveDialog(win(e)!, {
+          title: typeof payload.title === 'string' ? payload.title.slice(0, 100) : '내보내기',
+          defaultPath: join(await saveDir(), name),
+          filters: [{ name: '텍스트', extensions: ['txt'] }]
+        })
+        if (r.canceled || !r.filePath) return { ok: false, canceled: true, message: '' }
+        await writeFile(r.filePath, payload.text.replace(/\r?\n/g, '\r\n'), 'utf8')
+        await rememberDir(r.filePath)
+        return { ok: true, value: r.filePath }
+      } catch (err) {
+        return errorResult(err)
+      }
+    }
+  )
 
   ipcMain.handle(IPC.openFile, async (e): Promise<FileResult<OpenedFile>> => {
     const r = await dialog.showOpenDialog(win(e)!, {
