@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Eye, FileDown, Home, Pencil, Redo2, RotateCcw, Save, SquarePen, Undo2 } from 'lucide-react'
+import { ChevronDown, Cpu, Eye, FileDown, Home, Pencil, Redo2, RotateCcw, Save, SquarePen, Undo2 } from 'lucide-react'
 import { saveFileName } from '@shared/files'
 
 interface Props {
@@ -30,6 +30,9 @@ export interface EditBar {
   onUndo(): void
   onRedo(): void
   onRevertAll(): void
+  /** 기체에 쓰기 (쓸 수 없으면 이유) */
+  writeBlocked?: string
+  onWrite(): void
 }
 
 export interface ExportMenu {
@@ -125,6 +128,12 @@ function EditControls({ e }: { e: EditBar }) {
             <button type="button" className="btn btn-small" onClick={e.onRevertAll} title="모든 편집을 원래 값으로">
               <RotateCcw size={14} aria-hidden />
               모두 되돌리기
+            </button>
+          )}
+          {e.editing && (
+            <button type="button" className="btn btn-danger" disabled={Boolean(e.writeBlocked)} title={e.writeBlocked ?? '변경한 값만 기체에 씁니다 (백업 → 전송 → 재검증)'} onClick={e.onWrite}>
+              <Cpu size={16} aria-hidden />
+              기체에 쓰기
             </button>
           )}
         </>

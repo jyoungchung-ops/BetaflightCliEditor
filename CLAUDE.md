@@ -58,7 +58,14 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
    - 검사: `tests/commands.test.ts`(왕복), `tests/sitl.paste.test.ts`(SITL 4개 버전 붙여 넣기 — `scripts/sitl/run-paste.ps1`)
    - 2025.12+ `feature X`는 빌드에 없으면 `Unavailable X`(###ERROR 아님) → 5단계 응답 검사에 포함 (`docs/cli-compat.md`)
    - 읽기 끝 판정: diff all/dump all 은 save 다음 프롬프트까지 기다림 (`responseComplete`)
-5~7. 대기
+5. SITL에 쓰기 — 완료 (실제 기체 첫 쓰기 테스트는 사용자가 한다, SPEC 13절 끝)
+   - 송신: `src/main/serial/writeSession.ts` (유일한 쓰기 송신, `isGeneratedCommand` 검사, `###ERROR`·`Unavailable`·save 거부 검사)
+   - 절차: `src/main/serial/writeFlow.ts` (Electron 무관 — SITL 테스트가 그대로 씀), IPC `writeIpc.ts`, 검사 `src/shared/edit/writePlan.ts`
+   - 화면: `components/WriteDialog.tsx` (안전 확인 → 읽기 → 충돌 질문 → 미리보기·이름 입력 → 결과·재검증)
+   - 백업 `<저장폴더>ackups\<이름>_<날짜시각>_before-write.txt/.bfview.json`, 로그 `<저장폴더>\logs\write_<날짜>.log`
+   - 검사: `tests/writeSession.test.ts`(가짜 FC, 차단 명령), `tests/sitl.write.test.ts`(SITL 4개 버전, 오류 주입 — `scripts/sitl/run-write.ps1`)
+   - SITL 은 감시 루프로 띄움(`~/sitl.sh start|powercycle|stop`) — 저장소 `scripts/sitl/sitl.sh` 를 WSL `~/sitl.sh` 로 복사해 씀
+6~7. 대기
 
 ## v1 진행 상태 (SPEC 7절) — 완료, v0.1.0 배포
 1. 뼈대 — 완료

@@ -9,7 +9,7 @@
 
 import { mkdir, writeFile, appendFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { buildSnapshot } from '@shared/cli/parser'
+import { buildSnapshot, parseCli } from '@shared/cli/parser'
 import type { CraftSnapshot, RawCli } from '@shared/cli/types'
 import { buildCommands } from '@shared/edit/commands'
 import { editsFromJson, type Edits } from '@shared/edit/session'
@@ -108,6 +108,26 @@ export const MESSAGES = {
   unknown: 'save 를 보낸 뒤 확인하지 못해 적용 여부를 알 수 없습니다. 기체를 다시 연결해 [재검증]하세요.'
 }
 
+/** 읽은 원문이 온전한가: 해석 못 한 줄이 없고, diff/dump 가 save 로 끝난다 */
+export function rawLooksComplete(raw: RawCli): boolean {
+  const ends = (t: string) => /(^|\n)save\s*$/.test(t.trim())
+  return Boolean(raw.version.trim()) && ends(raw.diffAll) && ends(raw.dumpAll) && parseCli(raw.dumpAll).unknown.length === 0 && parseCli(raw.diffAll).unknown.length === 0
+}
+
+/**
+ * 읽기 + 온전한지 검사, 깨졌으면 다시 (최대 3번).
+ * SITL 4.5.x 에서 save noreboot 직후 dump 의 바이트가 빠져 줄이 붙은 일이 있었다 — 그대로 대조하면 거짓 불일치가 된다.
+ */
+export async function readClean(reader: CliReader, sleep: (ms: number) => Promise<void>, attempts = 3): Promise<RawCli> {
+  let raw = await reader.readAll()
+  for (let i = 1; i < attempts && !rawLooksComplete(raw); i++) {
+    await sleep(1000)
+    raw = await reader.readAll()
+  }
+  if (!rawLooksComplete(raw)) throw new CliReadError('TIMEOUT', '읽은 내용이 깨져 있습니다 (3번 시도)')
+  return raw
+}
+
 export class WriteFlow {
   private transport: CliTransport | null = null
   private reader: CliReader | null = null
@@ -151,7 +171,7 @@ export class WriteFlow {
       this.transport = await this.deps.open(path)
       this.reader = this.newReader(this.transport, (read) => onProgress?.({ stage: 'read', read }))
       await this.reader.enterCli()
-      this.current = await this.reader.readAll()
+      this.current = await readClean(this.reader, this.sleep)
       await this.log('info', `읽기 완료: ${this.current.version.split('\n')[0] ?? ''}`)
       return this.current
     } catch (e) {
@@ -292,7 +312,8 @@ export class WriteFlow {
     const onRead = (read: ReadProgress) => onProgress?.({ stage: 'verify', read })
     if (!rebooted) {
       const reader = this.newReader(this.transport!, onRead)
-      return reader.readAll()
+      await this.sleep(500) // EEPROM 저장 직후 숨 돌리기
+      return readClean(reader, this.sleep)
     }
     onProgress?.({ stage: 'reconnect' })
     await this.transport?.close().catch(() => {})
@@ -300,7 +321,7 @@ export class WriteFlow {
     const transport = await this.reconnect()
     this.transport = transport
     const reader = this.newReader(transport, onRead)
-    return reader.readAll()
+    return readClean(reader, this.sleep)
   }
 
   /** 재부팅한 기체를 다시 찾아 CLI 에 들어간다 (최대 15초) */
@@ -336,7 +357,7 @@ export class WriteFlow {
       this.transport = await this.deps.open(path)
       const reader = this.newReader(this.transport, (read) => onProgress?.({ stage: 'verify', read }))
       await reader.enterCli()
-      const afterRaw = await reader.readAll()
+      const afterRaw = await readClean(reader, this.sleep)
       const after = buildSnapshot({ craftName: req.base.craftName, readAt: this.now().toISOString(), raw: afterRaw })
       const mismatches = verifyAfterWrite(buildSnapshot({ ...req.base, raw: req.base.raw }), after, edits).filter((m) => m.edited)
       await this.log('info', mismatches.length ? `재검증 불일치 ${mismatches.length}개` : '재검증: 편집 모두 반영됨')

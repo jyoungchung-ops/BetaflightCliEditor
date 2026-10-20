@@ -195,39 +195,24 @@ SITL을 4.5.3 · 4.5.5 · 2025.12.5 · 2026.6.2로 빌드해(`make TARGET=SITL` 
 
 **읽기 끝 판정 보강**: 같은 판정(프롬프트 `\n# ` + 150ms 조용)을 쓰던 테스트 도구에서 SITL 4.5.3 `dump all`이 `# ...` 주석 줄 경계에서 한 번 잘렸다. `diff all`/`dump all`은 항상 `save` 줄로 끝나므로, 앱 리더(`responseComplete`)는 이 둘에 한해 `save` 다음의 프롬프트를 기다린다.
 
-## 2025.12 설정 변경과 파서·화면 대응 (3단계)
+### 5단계 SITL 실측 — 쓰기 절차 전체 (2026-10-21)
+`scripts/sitl/run-write.ps1` → `tests/sitl.write.test.ts`. SITL 은 감시 루프로 띄운다(`scripts/sitl/sitl.sh`): SITL 은 재부팅(save)하면 프로세스가 끝나므로 루프가 같은 eeprom 으로 다시 띄워 실제 FC 재부팅을 흉내 낸다. `powercycle` = USB 뽑았다 꽂기(저장 안 한 값은 사라짐).
 
-SITL은 건너뛰었습니다. 대신 각 태그의 `src/main/cli/settings.c`에서 설정 이름과 섹션을 모두 뽑아 `fixtures/settings-names/{4.5.5,2025.12.5,2026.6.2}.json`에 두었습니다. 테스트(`tests/firmwareCompat.test.tsx`)는 **화면과 샘플이 쓰는 키 이름이 이 실제 목록에 있는지** 검사합니다.
-
-| 변경 | 4.5.x | 2025.12.x | 근거 | 앱 대응 |
+| 시나리오 | 4.5.3 | 4.5.5 | 2025.12.5 | 2026.6.2 |
 | --- | --- | --- | --- | --- |
-| serial 줄 포트 표기 | `serial 1 64 ...` (0~9 = UART1~10, 20 = VCP) | `serial UART2 64 ...` — 이름 `VCP`·`UART0~10`·`SOFT1~2`·`LPUART1` | cli.c `printSerial` 형식 `%d` → `%s`+`serialName()`; io/serial.c:147–196 이름표 | 파서가 숫자·이름 모두 읽음, 키는 `serial.UART2` |
-| 포트 식별자 번호 | UART1 = 0 | VCP = 20, SOFT = 30+, LPUART = 40, UART0 = 50, **UART1 = 51** | io/serial.h:84–117 (2025.12.5) | `portName()`이 0~9와 50~60을 모두 UART로 해석 |
-| D 항 | `d_roll` = **최대** D (기본 40), `d_min_roll` = 기본 D (30) | `d_roll` = **기본** D (30), `d_max_roll` = 최대 D (40) | flight/pid.h `PID_ROLL_DEFAULT`, `D_MIN_DEFAULT`/`D_MAX_DEFAULT`; settings.c `d_min_roll`(4.5.5:1191) / `d_max_roll`(2025.12.5:1329) | PID 표 열 이름을 덤프 키로 결정: 4.5 "D (최대) / D Min (기본)", 2025.12 "D (기본) / D Max (최대)" + 설명 줄 |
-| S 항 | 없음 | `s_roll/pitch/yaw` (pidf_t.S) | flight/pid.h:145–151 | PID 표에 S 열 (있을 때만) |
-| 간편 튜닝 D Max 슬라이더 | `simplified_dmax_gain` | `simplified_d_max_gain` | settings.c 비교 | 둘 다 표시(있는 것만) |
-| 페일세이프 착륙 시간 | `failsafe_off_delay` (0.1초, 기본 10) | `failsafe_landing_time` (초, 기본 60) | flight/failsafe.c:75 / 76, failsafe.h:38 | 각각 단위 맞춰 표시 |
-| 모터 아이들 | `dshot_idle_value` | `motor_idle` (같은 0.01% 단위) | settings.c:962, drivers/dshot.c:62 | 있는 키로 % 표시 |
-| GPS 레스큐 | `gps_rescue_throttle_*`, `_landing_alt` 등 | 이 키들이 빠지고 `ap_*`(오토파일럿)·`alt_hold_*`·`pos_hold_*` 추가. 2026.6에서는 `gps_rescue_velocity_*`·`_max_angle` 등도 `ap_*`로 | settings.c 비교 | GPS 탭에 "오토파일럿" 패널, `ap_`·`alt_hold_`·`pos_hold_`·`poshold_`를 GPS 탭에 매핑 |
-| 자이로 정렬 | `gyro_1_sensor_align`, `gyro_1_align_*` | set 키 없음 (`gyro_enabled_bitmask` 추가) | 2025.12.5 settings.c에 gyro 정렬 항목 없음 | 구성 탭에 안내 문구 |
-| 그 밖 | `min_throttle`, `gyro_to_use`, `rc_smoothing_feedforward_cutoff`, `crashflip_expo`, `iterm_limit`, `dyn_idle_start_increase` | 삭제 또는 `crashflip_rate` 등으로 변경, `thr_hover`(레이트) 추가 | settings.c 비교 | 없는 키는 줄이 숨겨지고, 새 키는 해당 탭 또는 "기타"에 표시 |
+| 정상: 백업 → 전송 → save → (재연결) → 재검증 일치, 다시 켜도 값 유지 | ✅ (save 재부팅 → 재연결) | ✅ (save noreboot) | ✅ | ✅ |
+| 기체가 `###ERROR`로 답함 → save 없이 멈춤, 다시 켜면 원래 값 | ✅ | ✅ | ✅ | ✅ |
+| 전송 중 기체 쪽 연결 끊김 → save 없음, 다시 켜면 원래 값 | ✅ | ✅ | ✅ | ✅ |
+| 펌웨어 빌드가 다름 → 쓰지 않음(읽기 명령만 나감) | ✅ | ✅ | ✅ | ✅ |
+| 충돌 → 묻기, "덮기" → 같은 연결로 씀 | ✅ | ✅ | ✅ | ✅ |
 
-### 이 조사에서 함께 고친 기존 오류
-4.5 실제 키 목록과 대조해 보니, 앱과 합성 샘플에 **실제로 없는 키 이름**이 있었습니다.
+2026.6.2 는 한 번 실패한 뒤 세 번 연속 통과했다(원인 기록 없음, SITL 시작 타이밍으로 추정).
 
-| 잘못 쓴 이름 | 실제 이름 | 영향 |
-| --- | --- | --- |
-| `dyn_lpf_dterm_min_hz/max_hz/curve_expo` | `dterm_lpf1_dyn_min_hz/max_hz/expo` | PID 필터 탭의 D-term 동적 필터 3개가 숨겨지고 "그 밖의 프로필 값"으로 밀려났음 |
-| `gps_ublox_mode` | `gps_ublox_flight_model` | GPS 탭에 안 보였음 |
-| `osd_warn_*` (개별 ON/OFF) | `osd_warn_bitmask` (비트마스크) | 4.5는 비트마스크 — 토글 대신 숫자로 표시 |
-| `osd_stat_bitmap` | `osd_stat_bitmask` | 같음 |
-| `displayport_msp_serial`, `displayport_msp_attrs` | 없음 (DisplayPort UART는 serial 기능 비트 `VTX_MSP`로 정함) | 포트·OSD 탭에서 제거 |
-| `angle_level_strength`, `horizon_transition` | 4.5.5·2025.12.5·2026.6.2 모두에 없음 | PID 탭에서 제거 |
-| 4.5 샘플의 `d_max_*` | 4.5는 `d_min_*` (의미도 반대) | 샘플 수정, 2025.12.5 형식 샘플 `moz7-2025.12` 추가 |
+**펌웨어가 save 때 고치는 값** (재검증에서 "다시 읽은 값이 다릅니다"로 나온다 — 정상 동작):
+- `gyro_notch*_hz` / `dterm_notch_hz` 를 cutoff 보다 낮게 주면 0(끔)
+- `mag_align_*` (지자기계 없음) → 0, `vbat_sag_compensation` → 0 (SITL)
+- MSP 포트가 하나도 없게 하면 첫 포트에 MSP 를 되살린다 → 앱은 이런 편집을 오류로 막는다
 
-## 이 앱에 주는 영향
+**연결 상태**: 연결을 끊어도(exit 없이) FC 는 CLI 모드에 남아, 다시 연결하면 `'#'` 진입 배너가 안 나온다(CLI_ENTER_FAILED). 그래서 충돌 질문 동안 연결을 열어 두고 같은 연결로 이어 쓴다. 취소 뒤 다시 쓰려면 USB 를 다시 꽂아야 한다.
 
-1. **지금 리더(`'#'` 한 바이트)는 조사한 모든 버전에서 동작해야 합니다.** 2단계 SITL과 저녁 실기체 테스트로 확인합니다.
-2. 배너 확인을 `"Entering CLI Mode"` 문자열로 하고 있어 `MINIMAL_CLI` 빌드(`"CLI"`만 출력)에서는 실패합니다. → 4단계에서 배너 문자열 대신 **프롬프트(`"\n# "`) 기준**으로 바꿉니다.
-3. 4.5.4+에서는 STX/ETX 방식이 **USB를 다시 꽂을 필요가 없고 아밍 금지도 남지 않아** 사용자에게 더 편합니다. 쓰려면 화이트리스트를 "허용된 읽기 명령 + STX/LF/ETX 틀"로 넓혀야 합니다. 이 방식을 쓸지는 결정이 필요합니다.
-4. `'#'` 뒤에 개행 등 다른 바이트를 붙여 보내면 안 됩니다(4.5.3~4.5.5 취소 조건). 지금 코드는 이미 그렇게 하고 있으며, 테스트로 고정합니다.
+**읽기 깨짐**: SITL 4.5.x 에서 save noreboot 직후 dump 바이트가 빠져 줄이 붙은 일이 있었다. 쓰기 절차의 읽기는 `rawLooksComplete()`(해석 못 한 줄 없음, save 로 끝남)를 확인하고 최대 3번 다시 읽는다(`readClean`).

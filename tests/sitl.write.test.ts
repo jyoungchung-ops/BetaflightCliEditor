@@ -9,7 +9,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { CliReader } from '../src/main/serial/cliReader'
 import { openTcpTransport } from '../src/main/serial/tcpTransport'
 import type { CliTransport } from '../src/main/serial/transport'
-import { WriteFlow, WriteFlowError, type WriteDeps } from '../src/main/serial/writeFlow'
+import { readClean, WriteFlow, WriteFlowError, type WriteDeps } from '../src/main/serial/writeFlow'
 import { buildSnapshot } from '../src/shared/cli/parser'
 import type { CraftSnapshot, RawCli } from '../src/shared/cli/types'
 import { valueOf, type Edits } from '../src/shared/edit/session'
@@ -22,7 +22,7 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
 const wsl = (cmd: string) =>
   execFileSync('wsl.exe', ['-d', 'Ubuntu-24.04', '--', 'bash', '-c', cmd], { encoding: 'utf8' }).replace(/\0/g, '').trim()
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 /** WSL 안에서 열려도 Windows 쪽 포워딩은 조금 늦다 — 될 때까지 */
 async function openRetry(): Promise<CliTransport> {
@@ -52,7 +52,7 @@ async function readNow(): Promise<CraftSnapshot> {
   const t = await openRetry()
   const r = new CliReader(t)
   await r.enterCli()
-  const raw = await r.readAll()
+  const raw = await readClean(r, sleep)
   await r.close()
   return buildSnapshot({ craftName: 'now', readAt: '', raw })
 }

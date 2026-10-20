@@ -23,6 +23,7 @@ import { Sidebar } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
 import { ConnectScreen } from './components/ConnectScreen'
 import { NameModal } from './components/NameModal'
+import { WriteDialog } from './components/WriteDialog'
 import { TabPlaceholder } from './tabs/TabPlaceholder'
 import { TAB_VIEWS } from './tabs'
 import { SnapshotProvider } from './ui/snapshot'
@@ -64,6 +65,7 @@ export default function App() {
   /** 마지막으로 저장(또는 연)한 시점의 편집 — 다르면 저장 안 된 변경이 있음 */
   const [savedEdits, setSavedEdits] = useState<Edits>(editState.edits)
   const [editing, setEditing] = useState(false)
+  const [writing, setWriting] = useState(false)
   const base = loaded?.snap ?? null
   const edits = editState.edits
   const editCount = Object.keys(edits).length
@@ -247,6 +249,20 @@ export default function App() {
     }
   }
 
+  /** 쓰기 뒤: 기체에서 다시 읽은 설정이 새 편집 원본. 반영되지 않은 편집만 남긴다 (원래 값 = 지금 기체 값) */
+  function written(afterRaw: RawCli) {
+    if (!loaded) return
+    const snap = buildSnapshot({ craftName: loaded.snap.craftName, readAt: new Date().toISOString(), raw: afterRaw })
+    const left: Edits = {}
+    for (const e of Object.values(edits)) {
+      const now = editsBaseValue(snap, e.key)
+      if (now !== undefined && now !== e.after) left[e.key] = { ...e, before: now }
+    }
+    setLoaded({ snap, file: undefined, dirty: true })
+    setEditState({ ...emptyEditState(), edits: left })
+    setSavedEdits({})
+  }
+
   function rename(craftName: string) {
     if (loaded) setLoaded({ ...loaded, snap: { ...loaded.snap, craftName }, dirty: true })
   }
@@ -287,6 +303,16 @@ export default function App() {
                 onToggle: () => setEditing((v) => !v),
                 onUndo: () => setEditState(undo),
                 onRedo: () => setEditState(redo),
+                writeBlocked: !canEdit
+                  ? '범위 정보가 없어 쓸 수 없습니다'
+                  : editCount === 0
+                    ? '편집한 값이 없습니다'
+                    : errorCount > 0
+                      ? `오류 ${errorCount}개를 먼저 고치세요`
+                      : !window.bfview
+                        ? '앱에서만 쓸 수 있습니다'
+                        : undefined,
+                onWrite: () => setWriting(true),
                 onRevertAll: () => {
                   if (window.confirm(`편집 ${editCount}개를 모두 원래 값으로 되돌릴까요?`)) setEditState(revertAll)
                 }
@@ -328,6 +354,8 @@ export default function App() {
           }}
         />
       )}
+
+      {writing && base && <WriteDialog base={base} edits={edits} onClose={() => setWriting(false)} onWritten={(raw) => written(raw)} />}
 
       {pending && (
         <NameModal
