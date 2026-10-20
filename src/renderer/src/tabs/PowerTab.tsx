@@ -47,6 +47,7 @@ function BatteryProfiles({ profiles, active }: { profiles: Record<string, string
           unit={o?.unit}
           k={`battery.${n}.${k}`}
           hint={<KeyHint name={k} hint={o?.hint} />}
+          edit={p[k] !== undefined ? { fullKey: `battery.${n}.${k}`, name: k, raw: p[k] } : undefined}
         />
       ))}
       {rows.some(([k]) => changed.has(`battery.${n}.${k}`)) && <p className="muted small">노란 테두리 = 기본값과 다른 값</p>}

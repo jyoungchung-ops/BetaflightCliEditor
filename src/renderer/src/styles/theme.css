@@ -21,6 +21,8 @@
   --accent-soft: rgba(255, 187, 0, 0.12);
 
   --changed: #ffbb00;
+  --edited: #3fa9f5;
+  --edited-soft: rgba(63, 169, 245, 0.14);
   --ok: #59aa29;
   --danger: #e2493b;
 

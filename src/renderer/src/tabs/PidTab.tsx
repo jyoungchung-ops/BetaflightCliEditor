@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { actualRateAt, axisRates, maxRate, rateAt, supportsRateType, toActual, withRateDefaults } from '@shared/mapping/rates'
 import { PID_PROFILE_SHOWN, RATE_PROFILE_SHOWN } from '@shared/mapping/tabKeys'
-import { Columns, Field, KeyHint, MasterField, Panel, TabFrame, num } from '../ui/widgets'
+import { CellValue, Columns, Field, KeyHint, MasterField, Panel, TabFrame, num } from '../ui/widgets'
+import { useEdit } from '../ui/editContext'
 import { useSnap } from '../ui/snapshot'
 
 type Kind = 'pid' | 'rate'
@@ -45,6 +46,7 @@ function ProfileField({
       unit={unit}
       k={`${kind}.${n}.${name}`}
       hint={hint === null ? undefined : <KeyHint name={name} hint={hint} />}
+      edit={{ fullKey: `${kind}.${n}.${name}`, name, raw: v }}
     />
   )
 }
@@ -185,9 +187,7 @@ function PidTable({ n }: { n: number }) {
               const isChanged = changed.has(`pid.${n}.${k}`)
               return (
                 <td key={c.id}>
-                  <span className={'value-box' + (isChanged ? ' cell-changed' : '')} title={k}>
-                    {v ?? '—'}
-                  </span>
+                  <CellValue fullKey={`pid.${n}.${k}`} name={k} raw={v} changed={isChanged} />
                 </td>
               )
             })}
@@ -475,6 +475,9 @@ function Rates({ n }: { n: number }) {
   const type = profile.rates_type ?? 'ACTUAL'
   const cols = rateColumns(type)
   const [view, setView] = useState<RateView>('actual')
+  const { editing } = useEdit()
+  // 편집 중에는 CLI 값 그대로 편집한다 (환산값이 아니라 기체에 쓰는 값)
+  const showActual = !editing && (view === 'actual' || type === 'ACTUAL')
   const R = (props: Omit<Parameters<typeof ProfileField>[0], 'kind' | 'n'>) => <ProfileField kind="rate" n={n} {...props} />
 
   return (
@@ -501,7 +504,13 @@ function Rates({ n }: { n: number }) {
           {filled.size > 0 && (
             <p className="muted small">diff에 없는 레이트 값은 펌웨어 기본값(ACTUAL 7 / 67 / 0)으로 채워 흐리게 표시했습니다.</p>
           )}
-          {view === 'actual' || type === 'ACTUAL' ? (
+          {editing && (
+            <p className="muted small">
+              편집 중에는 CLI 값을 그대로 고칩니다
+              {type === 'ACTUAL' ? ' (rc_rate 7 = 중앙 감도 70°/s, srate 67 = 최대 670°/s, expo 0~100)' : ''}. 최대 속도와 그래프는 바로 반영됩니다.
+            </p>
+          )}
+          {showActual ? (
             <ActualTable type={type} profile={profile} n={n} filled={filled} />
           ) : (
           <table className="grid-table">
@@ -527,15 +536,24 @@ function Rates({ n }: { n: number }) {
                       const v = profile[k]
                       return (
                         <td key={c.key}>
-                          <span className={'value-box' + (changed.has(`rate.${n}.${k}`) ? ' cell-changed' : '')}>
-                            {v === undefined ? '—' : c.fmt(Number(v))}
-                          </span>
+                          <CellValue
+                            fullKey={`rate.${n}.${k}`}
+                            name={k}
+                            raw={v}
+                            display={v === undefined ? undefined : c.fmt(Number(v))}
+                            changed={changed.has(`rate.${n}.${k}`)}
+                          />
                         </td>
                       )
                     })}
                     <td>{max === null ? '—' : `${Math.round(max)}°/s`}</td>
-                    <td className={changed.has(`rate.${n}.${axis}_rate_limit`) ? 'yes' : ''}>
-                      {profile[`${axis}_rate_limit`] ?? '—'}
+                    <td>
+                      <CellValue
+                        fullKey={`rate.${n}.${axis}_rate_limit`}
+                        name={`${axis}_rate_limit`}
+                        raw={profile[`${axis}_rate_limit`]}
+                        changed={changed.has(`rate.${n}.${axis}_rate_limit`)}
+                      />
                     </td>
                   </tr>
                 )

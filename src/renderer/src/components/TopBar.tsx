@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileDown, Home, Pencil, Save } from 'lucide-react'
+import { Eye, FileDown, Home, Pencil, Redo2, RotateCcw, Save, SquarePen, Undo2 } from 'lucide-react'
 import { saveFileName } from '@shared/files'
 
 interface Props {
@@ -13,6 +13,61 @@ interface Props {
   onSave?(): void
   onExport?(): void
   onHome?(): void
+  edit?: EditBar
+}
+
+export interface EditBar {
+  editing: boolean
+  /** get 범위 정보가 있어야 편집할 수 있다 */
+  canEdit: boolean
+  count: number
+  errorCount: number
+  canUndo: boolean
+  canRedo: boolean
+  onToggle(): void
+  onUndo(): void
+  onRedo(): void
+  onRevertAll(): void
+}
+
+export const NO_SCHEMA_MESSAGE = '기체를 한 번 연결해 범위 정보를 읽어야 편집할 수 있습니다'
+
+function EditControls({ e }: { e: EditBar }) {
+  return (
+    <div className={'edit-bar' + (e.editing ? ' on' : '')}>
+      <button
+        type="button"
+        className={'btn' + (e.editing ? ' btn-edit-on' : '')}
+        disabled={!e.canEdit && !e.editing}
+        aria-pressed={e.editing}
+        title={e.canEdit ? (e.editing ? '보기 모드로 (편집은 남아 있음)' : '편집 모드로') : NO_SCHEMA_MESSAGE}
+        onClick={e.onToggle}
+      >
+        {e.editing ? <Eye size={16} aria-hidden /> : <SquarePen size={16} aria-hidden />}
+        {e.editing ? '보기로' : '편집'}
+      </button>
+      {(e.editing || e.count > 0) && (
+        <>
+          <button type="button" className="btn btn-icon" disabled={!e.canUndo} onClick={e.onUndo} title="되돌리기 (Ctrl+Z)" aria-label="되돌리기">
+            <Undo2 size={16} aria-hidden />
+          </button>
+          <button type="button" className="btn btn-icon" disabled={!e.canRedo} onClick={e.onRedo} title="다시 하기 (Ctrl+Y)" aria-label="다시 하기">
+            <Redo2 size={16} aria-hidden />
+          </button>
+          <span className="edit-count" role="status">
+            변경 {e.count}개
+            {e.errorCount > 0 && <span className="edit-errors"> · 오류 {e.errorCount}개</span>}
+          </span>
+          {e.count > 0 && (
+            <button type="button" className="btn btn-small" onClick={e.onRevertAll} title="모든 편집을 원래 값으로">
+              <RotateCcw size={14} aria-hidden />
+              모두 되돌리기
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  )
 }
 
 function formatReadAt(iso: string) {
@@ -64,7 +119,7 @@ function CraftName({ name, onRename }: { name: string; onRename?(n: string): voi
   )
 }
 
-export function TopBar({ craftName, firmware, readAt, offlineFile, canExport, onRename, onSave, onExport, onHome }: Props) {
+export function TopBar({ craftName, firmware, readAt, offlineFile, canExport, onRename, onSave, onExport, onHome, edit }: Props) {
   const loaded = craftName !== null
 
   return (
@@ -92,6 +147,7 @@ export function TopBar({ craftName, firmware, readAt, offlineFile, canExport, on
       </div>
 
       <div className="topbar-actions">
+        {edit && <EditControls e={edit} />}
         {loaded && (
           <button type="button" className="btn" onClick={onHome} title="처음 화면 (다른 기체 연결·파일 열기)">
             <Home size={16} aria-hidden />

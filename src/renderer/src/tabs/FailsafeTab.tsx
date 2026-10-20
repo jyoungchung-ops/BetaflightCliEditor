@@ -1,6 +1,7 @@
 import { masterKeysForTab } from '@shared/mapping/tabKeys'
-import { Columns, Empty, FieldList, Panel, RestOfMaster, TabFrame, deci, namesOf, type FieldDef } from '../ui/widgets'
+import { Columns, Empty, FieldList, Panel, RestOfMaster, TabFrame, deci, namesOf, useEditMark, type FieldDef } from '../ui/widgets'
 import { useSnap } from '../ui/snapshot'
+import { useEdit } from '../ui/editContext'
 
 const SEC = { unit: 's', format: deci }
 
@@ -25,8 +26,50 @@ const STAGE2: FieldDef[] = [
 const CH_NAMES = ['롤', '피치', '요', '스로틀']
 const MODE_LABEL: Record<string, string> = { a: '자동', h: '유지', s: '지정값' }
 
+/** 펌웨어 규칙: 롤·피치·요·스로틀은 자동/지정값, AUX 는 유지/지정값 (rx/rx.c rxFailsafeChannelMode) */
+const modesFor = (ch: number) => (ch < 4 ? ['a', 's'] : ['h', 's'])
+
+function RxFailEditRow({ channel, mode, value }: { channel: number; mode: string; value?: number }) {
+  const { setValue } = useEdit()
+  const key = `rxfail.${channel}`
+  const mark = useEditMark(key)
+  const set = (m: string, v?: number) => setValue(key, `rxfail ${channel} ${m}${m === 's' ? ` ${v ?? 1500}` : ''}`)
+  return (
+    <tr className={(mark.edited ? 'edited-row' : '') + (mark.error ? ' invalid-row' : '')} title={mark.error ?? mark.title}>
+      <th scope="row">{CH_NAMES[channel] ?? `AUX${channel - 3}`}</th>
+      <td>
+        <select className="edit-input" value={mode} aria-label={`${key} 동작`} onChange={(e) => set(e.target.value, value)}>
+          {modesFor(channel).map((m) => (
+            <option key={m} value={m}>
+              {MODE_LABEL[m]}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td>
+        {mode === 's' ? (
+          <input
+            className={'edit-input' + (mark.error ? ' invalid' : '')}
+            type="number"
+            min={750}
+            max={2250}
+            step={1}
+            value={value ?? ''}
+            aria-label={`${key} 값`}
+            onChange={(e) => set('s', Number(e.target.value))}
+          />
+        ) : (
+          <span className="no">—</span>
+        )}
+        {mark.revertButton}
+      </td>
+    </tr>
+  )
+}
+
 export function FailsafeTab() {
   const { snap, changed, m } = useSnap()
+  const { editing } = useEdit()
   const isRescue = m('failsafe_procedure') === 'GPS-RESCUE'
 
   return (
@@ -53,13 +96,17 @@ export function FailsafeTab() {
                 </tr>
               </thead>
               <tbody>
-                {snap.rxFail.map((r) => (
-                  <tr key={r.channel} className={changed.has(`rxfail.${r.channel}`) ? 'changed' : ''}>
-                    <th scope="row">{CH_NAMES[r.channel] ?? `AUX${r.channel - 3}`}</th>
-                    <td>{MODE_LABEL[r.mode] ?? r.mode}</td>
-                    <td>{r.mode === 's' ? `${r.value} µs` : <span className="no">—</span>}</td>
-                  </tr>
-                ))}
+                {snap.rxFail.map((r) =>
+                  editing ? (
+                    <RxFailEditRow key={r.channel} channel={r.channel} mode={r.mode} value={r.value} />
+                  ) : (
+                    <tr key={r.channel} className={changed.has(`rxfail.${r.channel}`) ? 'changed' : ''}>
+                      <th scope="row">{CH_NAMES[r.channel] ?? `AUX${r.channel - 3}`}</th>
+                      <td>{MODE_LABEL[r.mode] ?? r.mode}</td>
+                      <td>{r.mode === 's' ? `${r.value} µs` : <span className="no">—</span>}</td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
           )}

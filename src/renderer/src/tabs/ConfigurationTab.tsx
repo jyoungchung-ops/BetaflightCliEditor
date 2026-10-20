@@ -1,4 +1,4 @@
-import { Columns, Field, MasterField, MasterToggle, Panel, TabFrame, Toggle, num } from '../ui/widgets'
+import { Columns, FeatureToggle, Field, MasterField, MasterToggle, Panel, TabFrame, Toggle, num } from '../ui/widgets'
 import { useSnap } from '../ui/snapshot'
 
 /** 기능 이름 → 설명. 여기 없는 기능도 아래 목록에 그대로 나온다 */
@@ -133,8 +133,8 @@ export function ConfigurationTab() {
 
       <Panel title="기타 기능" right={`${features.filter(([, on]) => on).length}개 켜짐`}>
         <div className="toggle-grid">
-          {features.map(([f, on]) => (
-            <Toggle key={f} on={on} label={FEATURE_LABELS[f] ?? f} k={`feature.${f}`} hint={<code className="key">{f}</code>} />
+          {features.map(([f]) => (
+            <FeatureToggle key={f} name={f} label={FEATURE_LABELS[f] ?? f} hint={<code className="key">{f}</code>} />
           ))}
         </div>
       </Panel>

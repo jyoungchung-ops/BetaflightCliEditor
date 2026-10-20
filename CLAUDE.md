@@ -45,7 +45,14 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
    - `src/shared/cli/schema.ts`: `parseGetSchema()`(get 출력 → 설정별 형식), `validateValue()`(범위 검사)
    - `CraftSnapshot.schema` 는 `raw.get` 에서 다시 만든다. 저장 파일 `schemaVersion: 2`, v1 파일은 schema 없이 열림
    - 검사: `tests/schema.test.ts` (SITL 4개 버전 실측 get.txt)
-3~7. 대기
+3. 편집 모드 — 완료 (기체에 쓰지 않음, 화면에서만 고침)
+   - 상태: `src/shared/edit/session.ts` (원본 보존, `effective()`, 되돌리기/다시 하기, `validateEdits()`, 탭 배지 `countByTab()`)
+   - 화면: `ui/editContext.tsx`(`useEdit`), `widgets.tsx`의 `ValueEditor`·`useEditMark`·`CellValue`·`FeatureToggle`. 상단 바 [편집]은 schema(get) 없으면 꺼짐
+   - 줄 편집(aux·serial·map·rxfail·feature)의 값은 CLI 한 줄 전체이고, 화면 반영은 같은 파서로 한다
+   - 끌기(모드 범위·OSD 요소)는 `setValue(..., { merge: true })`로 되돌리기 한 단계
+   - USB VCP의 MSP 끄기는 오류(재연결 불가). 저장 파일에 `edits` 배열 저장, schema는 저장하지 않음(raw.get에서 다시 만듦)
+   - 검사: `tests/edit.test.tsx`
+4~7. 대기
 
 ## v1 진행 상태 (SPEC 7절) — 완료, v0.1.0 배포
 1. 뼈대 — 완료

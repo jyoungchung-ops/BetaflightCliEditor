@@ -3,7 +3,21 @@ import { TABS, type TabId } from '@shared/tabs'
 import { buildSnapshot } from '@shared/cli/parser'
 import type { CraftSnapshot, RawCli } from '@shared/cli/types'
 import type { FileResult, OpenedFile } from '@shared/ipc'
-import { FileFormatError, fromSavedFile, looksLikeSavedFile, rawFromCliText, toSavedFile } from '@shared/files'
+import { editsOfSavedFile, FileFormatError, fromSavedFile, looksLikeSavedFile, rawFromCliText, toSavedFile } from '@shared/files'
+import {
+  countByTab,
+  effective,
+  emptyEditState,
+  redo,
+  revertAll,
+  revertKey,
+  setValue as setEditValue,
+  undo,
+  validateEdits,
+  valueOf as editsBaseValue,
+  type EditState,
+  type Edits
+} from '@shared/edit/session'
 import { Sidebar } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
 import { ConnectScreen } from './components/ConnectScreen'
@@ -11,6 +25,7 @@ import { NameModal } from './components/NameModal'
 import { TabPlaceholder } from './tabs/TabPlaceholder'
 import { TAB_VIEWS } from './tabs'
 import { SnapshotProvider } from './ui/snapshot'
+import { EditProvider, type EditCtx } from './ui/editContext'
 
 /** 서보를 쓰는 믹서 (고정익·트라이 등). 그 밖에는 서보 탭을 숨긴다 */
 const SERVO_MIXERS = new Set([
@@ -44,7 +59,18 @@ export default function App() {
   const [toast, setToast] = useState<Toast | null>(null)
   const [dragging, setDragging] = useState(false)
   const [appVersion, setAppVersion] = useState('')
-  const snapshot = loaded?.snap ?? null
+  const [editState, setEditState] = useState<EditState>(emptyEditState)
+  /** 마지막으로 저장(또는 연)한 시점의 편집 — 다르면 저장 안 된 변경이 있음 */
+  const [savedEdits, setSavedEdits] = useState<Edits>(editState.edits)
+  const [editing, setEditing] = useState(false)
+  const base = loaded?.snap ?? null
+  const edits = editState.edits
+  const editCount = Object.keys(edits).length
+  // 화면은 언제나 원본 + 편집을 그린다 (보기 모드로 돌아가도 편집은 남아 있음)
+  const snapshot = useMemo(() => (base ? effective(base, edits) : null), [base, edits])
+  const errors = useMemo(() => (base ? validateEdits(base, edits) : {}), [base, edits])
+  const canEdit = Boolean(base?.schema && Object.keys(base.schema).length > 0)
+  const unsaved = Boolean(loaded?.dirty) || edits !== savedEdits
 
   const tabs = useMemo(
     () => TABS.filter((t) => t.id !== 'servos' || SERVO_MIXERS.has(snapshot?.mixer?.type ?? '')),
@@ -59,15 +85,57 @@ export default function App() {
     return () => clearTimeout(id)
   }, [toast])
 
-  const confirmLeave = useCallback(
-    () => !loaded?.dirty || window.confirm('저장하지 않은 읽기 결과가 있습니다. 버리고 계속할까요?'),
-    [loaded]
-  )
+  const confirmLeave = useCallback(() => {
+    if (!unsaved) return true
+    const n = Object.keys(edits).length
+    return window.confirm(
+      n > 0
+        ? `저장하지 않은 편집 ${n}개가 있습니다. 버리고 계속할까요?`
+        : '저장하지 않은 읽기 결과가 있습니다. 버리고 계속할까요?'
+    )
+  }, [unsaved, edits])
 
-  const show = useCallback((snap: CraftSnapshot, opts: { file?: string; dirty: boolean }) => {
-    setLoaded({ snap, ...opts })
+  /** 새 기체·파일을 보여 준다. 앱은 언제나 보기 모드로 시작 (SPEC 9절) */
+  const show = useCallback((snap: CraftSnapshot, opts: { file?: string; dirty: boolean; edits?: Edits }) => {
+    setLoaded({ snap, file: opts.file, dirty: opts.dirty })
+    const st: EditState = { ...emptyEditState(), edits: opts.edits ?? {} }
+    setEditState(st)
+    setSavedEdits(st.edits)
+    setEditing(false)
     setActiveTab('setup')
   }, [])
+
+  const editCtx = useMemo<EditCtx>(
+    () => ({
+      editing,
+      base,
+      edits,
+      errors,
+      schema: base?.schema,
+      setValue: (key, value, opts) => base && setEditState((s) => setEditValue(s, base, key, value, opts)),
+      revert: (key) => setEditState((s) => revertKey(s, key))
+    }),
+    [editing, base, edits, errors]
+  )
+
+  // Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) — 편집 되돌리기·다시 하기
+  useEffect(() => {
+    if (!base) return
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+      if ((e.target as HTMLElement | null)?.closest?.('.craft-name-input')) return
+      const k = e.key.toLowerCase()
+      if (k === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        setEditState(undo)
+      } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
+        e.preventDefault()
+        setEditState(redo)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [base])
 
   /** 열기 창·드래그·파일 연결 공용 */
   const handleOpened = useCallback(
@@ -87,7 +155,14 @@ export default function App() {
           } catch {
             throw new FileFormatError('JSON 형식이 올바르지 않습니다.')
           }
-          show(fromSavedFile(json), { file: f.name, dirty: false })
+          const snap = fromSavedFile(json)
+          // 원본 값이 지금 원본과 같은 편집만 이어받는다 (파일을 손으로 고친 경우 대비)
+          const kept: Edits = {}
+          for (const e of Object.values(editsOfSavedFile(json))) {
+            const now = editsBaseValue(snap, e.key)
+            if (now !== undefined && now === e.before && e.after !== e.before) kept[e.key] = e
+          }
+          show(snap, { file: f.name, dirty: false, edits: kept })
           setReplugNotice(false)
         } else {
           const { raw, kind, fcCraftName } = rawFromCliText(f.content)
@@ -137,11 +212,12 @@ export default function App() {
 
   async function save() {
     if (!loaded) return
-    const json = JSON.stringify(toSavedFile(loaded.snap, appVersion), null, 2)
+    const json = JSON.stringify(toSavedFile(loaded.snap, appVersion, edits), null, 2)
     const r = await window.bfview.saveSnapshot(loaded.snap.craftName, json)
     if (r.ok) {
       setLoaded({ ...loaded, dirty: false })
-      setToast({ kind: 'ok', text: `저장했습니다: ${r.value}` })
+      setSavedEdits(edits)
+      setToast({ kind: 'ok', text: editCount ? `저장했습니다 (편집 ${editCount}개 포함): ${r.value}` : `저장했습니다: ${r.value}` })
     } else if (!r.canceled) setToast({ kind: 'error', text: `저장 실패: ${r.message}` })
   }
 
@@ -174,11 +250,30 @@ export default function App() {
         onSave={() => void save()}
         onExport={() => void exportDiff()}
         onHome={goHome}
+        edit={
+          base
+            ? {
+                editing,
+                canEdit,
+                count: editCount,
+                errorCount: Object.keys(errors).length,
+                canUndo: editState.past.length > 0,
+                canRedo: editState.future.length > 0,
+                onToggle: () => setEditing((v) => !v),
+                onUndo: () => setEditState(undo),
+                onRedo: () => setEditState(redo),
+                onRevertAll: () => {
+                  if (window.confirm(`편집 ${editCount}개를 모두 원래 값으로 되돌릴까요?`)) setEditState(revertAll)
+                }
+              }
+            : undefined
+        }
       />
       {snapshot ? (
+        <EditProvider value={editCtx}>
         <SnapshotProvider snap={snapshot}>
-          <div className="app-body">
-            <Sidebar tabs={tabs} active={tab.id} onSelect={setActiveTab} />
+          <div className={'app-body' + (editing ? ' editing' : '')}>
+            <Sidebar tabs={tabs} active={tab.id} onSelect={setActiveTab} badges={countByTab(edits)} />
             <main className="content">
               {replugNotice && (
                 <div className="notice info banner">
@@ -198,6 +293,7 @@ export default function App() {
             </main>
           </div>
         </SnapshotProvider>
+        </EditProvider>
       ) : (
         <ConnectScreen
           onOpenFile={() => void window.bfview.openFile().then(handleOpened)}

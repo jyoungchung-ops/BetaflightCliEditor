@@ -14,6 +14,19 @@ export function decodeOsdPos(value: number): OsdPos {
   return { x, y, visible: [(value & 0x800) !== 0, (value & 0x1000) !== 0, (value & 0x2000) !== 0] }
 }
 
+const POS_BITS = 0x1f | 0x3e0 | 0x400 | 0x800 | 0x1000 | 0x2000
+
+/** decodeOsdPos 의 역. 위치·표시 비트 밖의 비트(요소 형태 등)는 원래 값에서 그대로 둔다 */
+export function encodeOsdPos(original: number, pos: OsdPos): number {
+  const x = Math.max(0, Math.min(63, Math.round(pos.x)))
+  const y = Math.max(0, Math.min(31, Math.round(pos.y)))
+  let v = (original & ~POS_BITS & 0xffff) | (x & 0x1f) | ((x & 0x20) << 5) | ((y & 0x1f) << 5)
+  pos.visible.forEach((on, i) => {
+    if (on) v |= 0x800 << i
+  })
+  return v
+}
+
 export interface Canvas {
   cols: number
   rows: number

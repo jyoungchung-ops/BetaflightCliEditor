@@ -5,9 +5,11 @@ interface Props {
   tabs: TabDef[]
   active: TabId
   onSelect(id: TabId): void
+  /** 탭별 편집 개수 */
+  badges?: Partial<Record<TabId, number>>
 }
 
-export function Sidebar({ tabs, active, onSelect }: Props) {
+export function Sidebar({ tabs, active, onSelect, badges }: Props) {
   return (
     <nav className="sidebar" aria-label="탭">
       <ul>
@@ -22,6 +24,11 @@ export function Sidebar({ tabs, active, onSelect }: Props) {
             >
               <TabIcon id={t.id} />
               <span>{t.label}</span>
+              {badges?.[t.id] ? (
+                <span className="tab-badge" title={`편집 ${badges[t.id]}개`}>
+                  {badges[t.id]}
+                </span>
+              ) : null}
             </button>
           </li>
         ))}

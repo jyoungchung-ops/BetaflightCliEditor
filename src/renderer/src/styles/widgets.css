@@ -554,3 +554,139 @@ tr.dim th {
   color: var(--text-dim);
   font-style: italic;
 }
+
+/* ── v2 편집 모드 ───────────────────────────────────── */
+/* 노란색(changed) = 펌웨어 기본값과 다름, 파란색(edited) = 이번에 고친 값 */
+.edit-input {
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px 6px;
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-field);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+input.edit-input[type='number'] {
+  width: 96px;
+  text-align: right;
+}
+.edit-input:focus {
+  outline: none;
+  border-color: var(--edited);
+}
+.edit-input.mono {
+  font-family: var(--mono);
+  letter-spacing: 0.1em;
+}
+.edit-input.invalid,
+.invalid > .field-value .edit-input {
+  border-color: var(--danger);
+}
+.field.edited .edit-input,
+.field.edited .value-box,
+.edited .edit-input {
+  border-color: var(--edited);
+  background: var(--edited-soft);
+}
+.field.edited .field-name::before,
+.toggle-row.edited::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--edited);
+  vertical-align: middle;
+}
+.field-error {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--danger);
+}
+.edit-preview {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.revert-btn {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding: 2px;
+  color: var(--edited);
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.revert-btn:hover {
+  background: var(--edited-soft);
+}
+.grid-table tr.edited-row th[scope='row'],
+.grid-table td.edited {
+  box-shadow: inset 3px 0 0 var(--edited);
+}
+.grid-table tr.edited-row {
+  background: var(--edited-soft);
+}
+.grid-table tr.invalid-row,
+.grid-table td.invalid {
+  background: rgba(226, 73, 59, 0.12);
+}
+.mode-row.edited,
+.range-line.edited {
+  box-shadow: inset 3px 0 0 var(--edited);
+  padding-left: 6px;
+}
+.mode-row.invalid {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+.range-track.editable {
+  overflow: visible;
+  cursor: ew-resize;
+}
+.range-handle {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 10px;
+  margin-left: -5px;
+  background: var(--edited);
+  border: 1px solid var(--bg);
+  border-radius: 3px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.range-inputs {
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+}
+.check-edit input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--edited);
+  cursor: pointer;
+}
+.toggle-row button.switch {
+  cursor: pointer;
+}
+.osd-preview.editable .osd-el {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.osd-el.edited {
+  outline: 1px solid var(--edited);
+  color: var(--edited);
+}
+/* 오류는 편집 표시(파란색)보다 우선 */
+.edit-input.invalid,
+.edit-input.invalid:focus {
+  border-color: var(--danger);
+  background: rgba(226, 73, 59, 0.14);
+}

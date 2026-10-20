@@ -1,6 +1,7 @@
 // 저장 파일 이름 규칙과 저장 형식 (SPEC 6절)
 
 import { buildSnapshot, detectCliKind, parseCli } from './cli/parser'
+import { editsFromJson, type Edit, type Edits } from './edit/session'
 import type { CraftSnapshot, RawCli } from './cli/types'
 
 export const SAVE_EXT = '.bfview.json'
@@ -42,10 +43,21 @@ export const diffFileName = (craftName: string) => sanitizeFileName(craftName) +
 export interface SavedFile extends CraftSnapshot {
   schemaVersion: number
   appVersion: string
+  /** v2: 아직 기체에 쓰지 않은 편집 (원본 값 → 새 값). 열면 편집 모드에서 이어서 고칠 수 있다 */
+  edits?: Edit[]
 }
 
-export function toSavedFile(snap: CraftSnapshot, appVersion: string): SavedFile {
-  return { schemaVersion: SCHEMA_VERSION, appVersion, ...snap }
+/** snap 은 원본(편집 전). 편집은 따로 edits 에 담아 원본을 그대로 보존한다 */
+export function toSavedFile(snap: CraftSnapshot, appVersion: string, edits?: Edits): SavedFile {
+  const list = edits ? Object.values(edits) : []
+  // schema 는 raw.get 에서 다시 만들 수 있으니 저장하지 않는다 (파일 크기)
+  const { schema: _schema, ...rest } = snap
+  return { schemaVersion: SCHEMA_VERSION, appVersion, ...rest, ...(list.length ? { edits: list } : {}) }
+}
+
+/** 저장 파일의 편집 목록 (없거나 모양이 틀리면 빈 목록) */
+export function editsOfSavedFile(json: unknown): Edits {
+  return json && typeof json === 'object' ? editsFromJson((json as Partial<SavedFile>).edits) : {}
 }
 
 export class FileFormatError extends Error {}

@@ -1,7 +1,8 @@
 import { receiverMode } from '@shared/mapping/receiver'
 import { portName, SERIAL_FUNCTION } from '@shared/mapping/serial'
-import { Columns, Empty, Field, KeyHint, MasterField, MasterToggle, Panel, TabFrame } from '../ui/widgets'
+import { Columns, Empty, Field, KeyHint, MasterField, MasterToggle, Panel, TabFrame, useEditMark } from '../ui/widgets'
 import { useSnap } from '../ui/snapshot'
+import { useEdit } from '../ui/editContext'
 
 const MODE_HINT: Record<string, string | undefined> = {
   serial: '기능 줄이 없어 Serial RX 포트로 추정 (diff만 있는 파일)',
@@ -17,8 +18,36 @@ const MAP_LETTERS: Record<string, string> = {
 }
 const mapLabel = (c: string) => MAP_LETTERS[c] ?? (/\d/.test(c) ? `AUX${c}` : c)
 
+/** 채널 맵 편집: 8글자 (A E R T 1 2 3 4) */
+function MapEditor({ map }: { map: string }) {
+  const { setValue } = useEdit()
+  const mark = useEditMark('map')
+  return (
+    <div className={'field' + (mark.edited ? ' edited' : '') + (mark.error ? ' invalid' : '')}>
+      <span className="field-name">
+        채널 맵 편집
+        <span className="field-hint">
+          <code className="key">map</code>
+        </span>
+        {mark.error && <span className="field-error">{mark.error}</span>}
+      </span>
+      <span className="field-value" title={mark.title}>
+        <input
+          className={'edit-input mono' + (mark.error ? ' invalid' : '')}
+          value={map}
+          maxLength={8}
+          aria-label="채널 맵"
+          onChange={(e) => setValue('map', `map ${e.target.value.toUpperCase()}`)}
+        />
+        {mark.revertButton}
+      </span>
+    </div>
+  )
+}
+
 export function ReceiverTab() {
   const { snap, m, changed } = useSnap()
+  const { editing } = useEdit()
   const mode = receiverMode(snap.features, snap.serial, snap.master)
   const rxModeKey = mode.feature ? `feature.${mode.feature}` : undefined
   const rxPorts = snap.serial.filter((p) => (p.functionMask & SERIAL_FUNCTION.RX_SERIAL) !== 0)
@@ -68,6 +97,7 @@ export function ReceiverTab() {
             <Empty>map 줄이 없습니다.</Empty>
           )}
           <p className="muted small">입력 채널 순서 → 기능. AETR1234가 기본입니다.</p>
+          {editing && map !== undefined && <MapEditor map={map} />}
         </Panel>
 
         <Panel title="RSSI">
@@ -75,7 +105,8 @@ export function ReceiverTab() {
             label="RSSI 채널"
             value={rssi === undefined ? undefined : rssi === '0' ? '사용 안 함' : `CH${rssi}${Number(rssi) > 4 ? ` (AUX${Number(rssi) - 4})` : ''}`}
             k="master.rssi_channel"
-            hint={<KeyHint name="rssi_channel" />}
+            hint={<KeyHint name="rssi_channel" hint={editing ? '0 = 사용 안 함, 5 = AUX1' : undefined} />}
+            edit={rssi !== undefined ? { fullKey: 'master.rssi_channel', name: 'rssi_channel', raw: rssi } : undefined}
           />
           <MasterToggle name="rssi_src_frame_errors" label="프레임 오류로 RSSI 계산" />
           <MasterField name="rssi_scale" label="RSSI 배율" />

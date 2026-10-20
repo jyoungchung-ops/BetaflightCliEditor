@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { decodeOsdPos, osdCanvas, osdElementLabel, osdElementName } from '@shared/mapping/osd'
+import { useRef, useState } from 'react'
+import { decodeOsdPos, encodeOsdPos, osdCanvas, osdElementLabel, osdElementName, type OsdPos } from '@shared/mapping/osd'
 import { masterKeysForTab } from '@shared/mapping/tabKeys'
 import { ChangedDot, Columns, Empty, FieldList, MasterToggle, Panel, RestOfMaster, TabFrame, namesOf, type FieldDef } from '../ui/widgets'
 import { useSnap } from '../ui/snapshot'
+import { useEdit } from '../ui/editContext'
 
 const VIDEO: FieldDef[] = [
   ['osd_displayport_device', 'OSD 장치', { hint: 'MSP = DJI·HDZero·Walksnail 등 디지털' }],
@@ -29,19 +30,53 @@ interface Element {
   x: number
   y: number
   visible: [boolean, boolean, boolean]
+  raw: number
 }
 
-function Preview({ elements, cols, rows, profile }: { elements: Element[]; cols: number; rows: number; profile: number }) {
+interface PreviewProps {
+  elements: Element[]
+  cols: number
+  rows: number
+  profile: number
+  /** 편집 모드: 요소를 끌어 칸 단위로 옮긴다 */
+  onMove?(e: Element, x: number, y: number, merge: boolean): void
+  edited?: (key: string) => boolean
+}
+
+function Preview({ elements, cols, rows, profile, onMove, edited }: PreviewProps) {
+  const box = useRef<HTMLDivElement>(null)
   const shown = elements.filter((e) => e.visible[profile])
+  const startDrag = (el: Element) => (ev: React.PointerEvent) => {
+    if (!onMove || !box.current) return
+    ev.preventDefault()
+    const area = box.current
+    let first = true // 한 번 끌기 = 되돌리기 한 단계
+    const move = (p: PointerEvent) => {
+      const r = area.getBoundingClientRect()
+      const x = Math.max(0, Math.min(cols - 1, Math.floor(((p.clientX - r.left) / r.width) * cols)))
+      const y = Math.max(0, Math.min(rows - 1, Math.floor(((p.clientY - r.top) / r.height) * rows)))
+      if (x !== el.x || y !== el.y) {
+        onMove(el, x, y, !first)
+        first = false
+      }
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
   return (
-    <div className="osd-preview" style={{ ['--cols' as string]: cols, ['--rows' as string]: rows }}>
+    <div className={'osd-preview' + (onMove ? ' editable' : '')} ref={box} style={{ ['--cols' as string]: cols, ['--rows' as string]: rows }}>
       <div className="osd-grid" />
       {shown.map((e) => (
         <span
           key={e.key}
-          className={'osd-el' + (e.x >= cols || e.y >= rows ? ' out' : '')}
+          className={'osd-el' + (e.x >= cols || e.y >= rows ? ' out' : '') + (edited?.(e.key) ? ' edited' : '')}
           style={{ left: `${(Math.min(e.x, cols - 1) / cols) * 100}%`, top: `${(Math.min(e.y, rows - 1) / rows) * 100}%` }}
-          title={`${e.label} (${e.x}, ${e.y})`}
+          title={`${e.label} (${e.x}, ${e.y})${onMove ? ' — 끌어서 옮기기' : ''}`}
+          onPointerDown={startDrag(e)}
         >
           {e.preview}
         </span>
@@ -52,6 +87,7 @@ function Preview({ elements, cols, rows, profile }: { elements: Element[]; cols:
 
 export function OsdTab() {
   const { snap, changed, m } = useSnap()
+  const { editing, edits, setValue } = useEdit()
   const canvas = osdCanvas(snap.master, snap.status?.osd)
   const activeProfile = Math.max(1, Math.min(3, Number(m('osd_profile') ?? 1)))
   const [profile, setProfile] = useState(activeProfile - 1)
@@ -60,9 +96,18 @@ export function OsdTab() {
   const elements: Element[] = posKeys.map((key) => {
     const name = osdElementName(key)
     const [label, preview] = osdElementLabel(name)
-    const p = decodeOsdPos(Number(snap.master[key]))
-    return { key, name, label, preview: name === 'craft_name' && m('craft_name') ? m('craft_name')!.toUpperCase() : preview, ...p }
+    const raw = Number(snap.master[key])
+    const p = decodeOsdPos(raw)
+    return { key, name, label, raw, preview: name === 'craft_name' && m('craft_name') ? m('craft_name')!.toUpperCase() : preview, ...p }
   })
+  const setPos = (e: Element, patch: Partial<OsdPos>, merge = false) =>
+    setValue(`master.${e.key}`, String(encodeOsdPos(e.raw, { x: e.x, y: e.y, visible: e.visible, ...patch })), { merge })
+  const toggleVis = (e: Element, i: number) => {
+    const visible = [...e.visible] as [boolean, boolean, boolean]
+    visible[i] = !visible[i]
+    setPos(e, { visible })
+  }
+  const isEdited = (key: string) => Boolean(edits[`master.${key}`])
   const visibleCount = elements.filter((e) => e.visible[profile]).length
   const sorted = [...elements].sort((a, b) => Number(b.visible[profile]) - Number(a.visible[profile]) || a.label.localeCompare(b.label))
 
@@ -96,8 +141,15 @@ export function OsdTab() {
         </span>
       </div>
 
-      <Panel title="미리보기" right="위치만 표시 — 실제 글꼴·아이콘과 다름">
-        <Preview elements={elements} cols={canvas.cols} rows={canvas.rows} profile={profile} />
+      <Panel title="미리보기" right={editing ? '요소를 끌어 옮깁니다 — 선택한 OSD 프로필에 보이는 요소만' : '위치만 표시 — 실제 글꼴·아이콘과 다름'}>
+        <Preview
+          elements={elements}
+          cols={canvas.cols}
+          rows={canvas.rows}
+          profile={profile}
+          onMove={editing ? (e, x, y, merge) => setPos(e, { x, y }, merge) : undefined}
+          edited={isEdited}
+        />
       </Panel>
 
       <Columns>
@@ -118,7 +170,7 @@ export function OsdTab() {
                 </thead>
                 <tbody>
                   {sorted.map((e) => (
-                    <tr key={e.key} className={e.visible[profile] ? '' : 'dim'}>
+                    <tr key={e.key} className={(e.visible[profile] ? '' : 'dim') + (isEdited(e.key) ? ' edited-row' : '')}>
                       <td className="left">
                         <div>{e.label}</div>
                         <div className="cell">
@@ -126,11 +178,19 @@ export function OsdTab() {
                           <ChangedDot on={changed.has(`master.${e.key}`)} />
                         </div>
                       </td>
-                      {e.visible.map((v, i) => (
-                        <td key={i} className={v ? 'yes' : 'no'}>
-                          {v ? '●' : '○'}
-                        </td>
-                      ))}
+                      {e.visible.map((v, i) =>
+                        editing ? (
+                          <td key={i}>
+                            <label className="check-edit">
+                              <input type="checkbox" checked={v} aria-label={`${e.label} 프로필 ${i + 1} 표시`} onChange={() => toggleVis(e, i)} />
+                            </label>
+                          </td>
+                        ) : (
+                          <td key={i} className={v ? 'yes' : 'no'}>
+                            {v ? '●' : '○'}
+                          </td>
+                        )
+                      )}
                       <td>
                         {e.x}, {e.y}
                       </td>
