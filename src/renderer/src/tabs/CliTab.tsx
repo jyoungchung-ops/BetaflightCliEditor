@@ -8,7 +8,8 @@ const SOURCES: [keyof RawCli, string][] = [
   ['diffAll', 'diff all'],
   ['dumpAll', 'dump all'],
   ['version', 'version'],
-  ['status', 'status']
+  ['status', 'status'],
+  ['get', 'get (범위)']
 ]
 
 function highlight(line: string, q: string): ReactNode {
@@ -31,7 +32,7 @@ export function CliTab() {
   const [onlyMatches, setOnlyMatches] = useState(true)
   const [copied, setCopied] = useState(false)
 
-  const text = snap.raw[source]
+  const text = snap.raw[source] ?? ''
   const lines = useMemo(() => text.replace(/\r/g, '').replace(/\n$/, '').split('\n'), [text])
   const q = query.trim().toLowerCase()
   const shown = lines.map((l, i) => ({ l, n: i + 1 })).filter(({ l }) => !q || !onlyMatches || l.toLowerCase().includes(q))
@@ -55,7 +56,7 @@ export function CliTab() {
               aria-selected={source === id}
               className={'subtab' + (source === id ? ' active' : '')}
               onClick={() => setSource(id)}
-              disabled={!snap.raw[id].trim()}
+              disabled={!snap.raw[id]?.trim()}
             >
               {label}
             </button>

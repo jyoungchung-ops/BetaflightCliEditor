@@ -62,6 +62,11 @@ export function SetupTab() {
           <Field label="설정 값" value={`${Object.keys(snap.master).length}개`} hint="master set 키" />
           <Field label="변경된 항목" value={`${snap.changed.length}개`} hint="diff all 기준, 노란 점으로 표시" />
           <Field label="해석 못 한 줄" value={`${snap.unknown.length}개`} hint="기타 탭에서 확인" />
+          <Field
+            label="설정 범위 정보"
+            value={snap.schema ? `${Object.keys(snap.schema).length}개` : '없음'}
+            hint={snap.schema ? 'get 으로 읽은 범위·허용값 (편집에 사용)' : '기체에서 직접 읽어야 생깁니다 (v1 파일·App txt 에는 없음)'}
+          />
         </Panel>
       </Columns>
     </TabFrame>

@@ -1,13 +1,14 @@
 {
   "tag": "2026.6.2",
-  "ms": 1101,
+  "ms": 1286,
   "writes": [
     "#",
     "get craft_name\n",
     "version\n",
     "status\n",
     "diff all\n",
-    "dump all\n"
+    "dump all\n",
+    "get\n"
   ],
   "craftName": "-",
   "firmware": "Betaflight 2026.6.2",
@@ -31,11 +32,6 @@
     "UART7",
     "UART8"
   ],
-  "unknown": [
-    "waypoint clear",
-    "battery_profile 0",
-    "battery_profile 1",
-    "battery_profile 2",
-    "battery_profile 0"
-  ]
+  "unknown": [],
+  "schema": 406
 }

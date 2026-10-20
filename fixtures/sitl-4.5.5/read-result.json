@@ -1,13 +1,14 @@
 {
   "tag": "4.5.5",
-  "ms": 1138,
+  "ms": 1276,
   "writes": [
     "#",
     "get craft_name\n",
     "version\n",
     "status\n",
     "diff all\n",
-    "dump all\n"
+    "dump all\n",
+    "get\n"
   ],
   "craftName": "-",
   "firmware": "Betaflight 4.5.5",
@@ -31,5 +32,6 @@
     6,
     7
   ],
-  "unknown": []
+  "unknown": [],
+  "schema": 311
 }

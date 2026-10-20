@@ -55,7 +55,7 @@ describe('저장 / 열기', () => {
 
   it('저장 → 열기 하면 같은 스냅샷', () => {
     const json = JSON.parse(JSON.stringify(toSavedFile(snap, '0.1.0')))
-    expect(json.schemaVersion).toBe(1)
+    expect(json.schemaVersion).toBe(2) // v2: raw.get · schema 추가
     expect(json.appVersion).toBe('0.1.0')
     const back = fromSavedFile(json)
     expect(back).toEqual(snap)

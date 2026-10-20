@@ -11,12 +11,12 @@ const TAG = process.env.SITL_TAG
 const TARGET = process.env.SITL_TARGET ?? 'tcp://127.0.0.1:5761'
 
 describe.runIf(Boolean(TAG))(`SITL ${TAG}: 앱 리더로 읽기`, () => {
-  it('# 진입 → get craft_name → version / status / diff all / dump all', async () => {
+  it('# 진입 → get craft_name → version / status / diff all / dump all / get', async () => {
     const transport = await openTcpTransport(TARGET)
     const writes: string[] = []
     const orig = transport.write
     transport.write = (d) => (writes.push(d), orig(d))
-    const reader = new CliReader(transport, { timeouts: { version: 5000, status: 5000, 'diff all': 20000, 'dump all': 30000 } })
+    const reader = new CliReader(transport, { timeouts: { version: 5000, status: 5000, 'diff all': 20000, 'dump all': 30000, get: 30000 } })
     const t0 = Date.now()
     await reader.enterCli()
     const craftName = await reader.getValue('craft_name')
@@ -30,6 +30,7 @@ describe.runIf(Boolean(TAG))(`SITL ${TAG}: 앱 리더로 읽기`, () => {
     writeFileSync(join(dir, 'status.txt'), raw.status)
     writeFileSync(join(dir, 'diff.txt'), raw.diffAll)
     writeFileSync(join(dir, 'dump.txt'), raw.dumpAll)
+    writeFileSync(join(dir, 'get.txt'), raw.get ?? '')
 
     const snap = buildSnapshot({ craftName: craftName || `SITL ${TAG}`, readAt: new Date().toISOString(), raw })
     const result = {
@@ -44,12 +45,14 @@ describe.runIf(Boolean(TAG))(`SITL ${TAG}: 앱 리더로 읽기`, () => {
       pidProfiles: snap.pidProfiles.length,
       rateProfiles: snap.rateProfiles.length,
       serial: snap.serial.map((s) => s.name ?? s.id),
-      unknown: snap.unknown
+      unknown: snap.unknown,
+      schema: Object.keys(snap.schema ?? {}).length
     }
     writeFileSync(join(dir, 'read-result.json'), JSON.stringify(result, null, 2))
 
     // 화이트리스트 밖 문자열을 보내지 않았다
-    expect(writes).toEqual(['#', 'get craft_name\n', 'version\n', 'status\n', 'diff all\n', 'dump all\n'])
+    expect(writes).toEqual(['#', 'get craft_name\n', 'version\n', 'status\n', 'diff all\n', 'dump all\n', 'get\n'])
+    expect(Object.keys(snap.schema ?? {}).length).toBeGreaterThan(200)
     expect(snap.meta.version).toBe(TAG)
     expect(Object.keys(snap.master).length).toBeGreaterThan(100) // SITL 은 OSD·GPS·VTX 등이 빠져 실기체보다 적다
     expect(snap.pidProfiles.length).toBeGreaterThan(0)

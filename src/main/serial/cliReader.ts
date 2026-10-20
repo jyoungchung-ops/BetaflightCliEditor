@@ -24,7 +24,9 @@ const DEFAULT_TIMEOUTS: Record<string, number> = {
   version: 5000,
   status: 5000,
   'diff all': 20000,
-  'dump all': 20000
+  'dump all': 20000,
+  // 인수 없는 get: 전체 설정 + 범위 (SITL 1000~1400줄, 0.4초 — 실기체 USB는 더 걸릴 수 있어 넉넉히)
+  get: 20000
 }
 const GET_TIMEOUT = 3000
 
@@ -178,14 +180,15 @@ export class CliReader {
 
   /** version / status / diff all / dump all 순서로 읽는다 */
   async readAll(): Promise<RawCli> {
-    const [version, status, diffAll, dumpAll] = [
+    const [version, status, diffAll, dumpAll, get] = [
       await this.exec(READ_COMMANDS[0], 0),
       await this.exec(READ_COMMANDS[1], 1),
       await this.exec(READ_COMMANDS[2], 2),
-      await this.exec(READ_COMMANDS[3], 3)
+      await this.exec(READ_COMMANDS[3], 3),
+      await this.exec(READ_COMMANDS[4], 4)
     ]
     this.opts.onProgress?.({ stage: 'done', total: READ_COMMANDS.length, lines: 0 })
-    return { version, status, diffAll, dumpAll }
+    return { version, status, diffAll, dumpAll, get }
   }
 
   async close(): Promise<void> {

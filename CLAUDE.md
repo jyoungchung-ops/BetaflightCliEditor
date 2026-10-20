@@ -40,7 +40,12 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
    - `scripts/sitl/probe.mjs` 는 SITL 전용 실험 도구(루프백만). 앱 코드에서 쓰지 않는다
    - 쓰기 방식 결론: `'#'` 진입, `batch start` → 명령 → `save`(batch end 없음), `###ERROR` 검사, 4.5.4+는 `save noreboot` 후 재검증
 1. 이름 변경 — 완료 (Betaflight CLI Editor 2.0.0, appId app.bfclieditor.editor, exe Betaflight-CLI-Editor-Setup/Portable-2.0.0). 앱 동작은 v1과 같음
-2~7. 대기
+2. 스키마 — 완료
+   - 읽기 화이트리스트에 인수 없는 `get` 추가, 읽기 순서 5번째 (`READ_COMMANDS`)
+   - `src/shared/cli/schema.ts`: `parseGetSchema()`(get 출력 → 설정별 형식), `validateValue()`(범위 검사)
+   - `CraftSnapshot.schema` 는 `raw.get` 에서 다시 만든다. 저장 파일 `schemaVersion: 2`, v1 파일은 schema 없이 열림
+   - 검사: `tests/schema.test.ts` (SITL 4개 버전 실측 get.txt)
+3~7. 대기
 
 ## v1 진행 상태 (SPEC 7절) — 완료, v0.1.0 배포
 1. 뼈대 — 완료

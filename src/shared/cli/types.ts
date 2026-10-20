@@ -203,6 +203,28 @@ export interface RawCli {
   status: string
   diffAll: string
   dumpAll: string
+  /** v2: 인수 없는 get 원문 (설정별 범위·허용값). v1 파일·App의 txt 에는 없다 */
+  get?: string
+}
+
+/**
+ * 설정 하나의 값 형식 (인수 없는 get 출력에서 얻음, cli.c cliPrintVarRange).
+ * 편집 모드의 입력 컨트롤과 범위 검사에 쓴다 (SPEC 9절).
+ */
+export interface SettingSchema {
+  /** 값이 속한 곳 — get 출력의 profile / rateprofile / battery_profile 줄 */
+  section: 'master' | 'pid' | 'rate' | 'battery'
+  /** number: Allowed range, enum: Allowed values, bool: OFF/ON, string: String length, array: Array length */
+  kind: 'number' | 'enum' | 'bool' | 'string' | 'array'
+  min?: number
+  max?: number
+  values?: string[]
+  minLength?: number
+  maxLength?: number
+  /** 배열 길이 (쉼표로 구분된 값 개수) */
+  length?: number
+  /** "Default value:" 줄 — 현재 값이 기본값과 다를 때만 나온다 */
+  default?: string
 }
 
 export interface CraftSnapshot {
@@ -233,4 +255,6 @@ export interface CraftSnapshot {
   /** diff all에 나온 키 — 화면에서 변경 강조 */
   changed: string[]
   unknown: string[]
+  /** v2: 설정 이름 → 형식(범위·허용값). raw.get 이 있을 때만 (없으면 편집 불가) */
+  schema?: Record<string, SettingSchema>
 }

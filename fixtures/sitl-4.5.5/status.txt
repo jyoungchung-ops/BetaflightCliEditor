@@ -1,10 +1,10 @@
 MCU SIMULATOR Clock=500MHz
-Stack size: 685842309, Stack address: 0x28e11f84
+Stack size: -119058555, Stack address: 0xf8e74f84
 Configuration: CONFIGURED, size: 2519, max available: 32768
 Gyros detected: gyro 1, gyro 2
 GYRO=VIRTUAL, ACC=VIRTUAL, BARO=VIRTUAL
-System Uptime: 4 seconds
-CPU:0%, cycle time: 133, GYRO rate: 7518, RX rate: 15, System rate: 9
+System Uptime: 3 seconds
+CPU:0%, cycle time: 142, GYRO rate: 7042, RX rate: 15, System rate: 9
 Voltage: 0 * 0.01V (0S battery - INIT)
 I2C Errors: 0
 Arming disable flags: RXLOSS ANGLE BOOTGRACE CLI MOTOR_PROTO

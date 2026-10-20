@@ -12,6 +12,7 @@ import type {
   StatusInfo,
   VtxTable
 } from './types'
+import { parseGetSchema } from './schema'
 
 /** 줄 분리 + \r 제거 */
 export function splitLines(text: string): string[] {
@@ -465,7 +466,9 @@ export function buildSnapshot({ craftName, readAt, raw }: SnapshotInput): CraftS
     mixer: main.mixer,
     beeper: main.beeper,
     changed: diff ? diff.keys : [],
-    unknown: main.unknown
+    unknown: main.unknown,
+    // v2: get 원문이 있으면 설정별 범위·허용값. 원문에서 다시 만들므로 파서가 좋아지면 옛 파일도 반영된다
+    ...(raw.get?.trim() ? { schema: parseGetSchema(raw.get) } : {})
   }
 }
 

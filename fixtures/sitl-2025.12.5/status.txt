@@ -1,5 +1,5 @@
 MCU: SIMULATOR CLK=500MHz
-STACK: -639053867b (0xd9e8cfd4)
+STACK: -1093967915b (0xbecb5fd4)
 CONFIG: CONFIGURED (2885b / 32768b)
 
 DEVICES DETECTED:
@@ -8,6 +8,6 @@ ACC: VIRTUAL
 BARO: VIRTUAL
 
 System Uptime: 4 seconds
-CPU:0%, cycle time: 110, GYRO rate: 9090, RX rate: 0, System rate: 9
+CPU:0%, cycle time: 116, GYRO rate: 8620, RX rate: 0, System rate: 9
 Voltage: 0.00V (0S battery - INIT)
 Arming disable flags: RXLOSS ANGLE BOOTGRACE CLI

@@ -35,7 +35,8 @@ export const CLI_ERROR_MESSAGES: Record<CliErrorCode, string> = {
 }
 
 /** 읽기 명령 순서 (SPEC 3절) */
-export const READ_COMMANDS = ['version', 'status', 'diff all', 'dump all'] as const
+/** 읽기 명령 순서 (SPEC 3절 + v2 9절: 마지막 'get'은 설정별 범위·허용값) */
+export const READ_COMMANDS = ['version', 'status', 'diff all', 'dump all', 'get'] as const
 export type ReadCommand = (typeof READ_COMMANDS)[number]
 
 export interface ReadProgress {

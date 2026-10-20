@@ -4,7 +4,8 @@ import { buildSnapshot, detectCliKind, parseCli } from './cli/parser'
 import type { CraftSnapshot, RawCli } from './cli/types'
 
 export const SAVE_EXT = '.bfview.json'
-export const SCHEMA_VERSION = 1
+/** 2 = v2 (raw.get · schema 추가). 1(v1) 파일도 그대로 열린다 — get 이 없으면 schema 없이 열림 */
+export const SCHEMA_VERSION = 2
 
 const RESERVED = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i
 const MAX_LEN = 100
@@ -65,7 +66,7 @@ export function fromSavedFile(json: unknown): CraftSnapshot {
   return buildSnapshot({
     craftName: isStr(f.craftName) && f.craftName.trim() ? f.craftName : '이름 없는 기체',
     readAt: isStr(f.readAt) ? f.readAt : '',
-    raw: { version: raw.version ?? '', status: raw.status ?? '', diffAll: raw.diffAll, dumpAll: raw.dumpAll }
+    raw: { version: raw.version ?? '', status: raw.status ?? '', diffAll: raw.diffAll, dumpAll: raw.dumpAll, ...(typeof raw.get === 'string' ? { get: raw.get } : {}) }
   })
 }
 

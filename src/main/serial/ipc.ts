@@ -2,7 +2,7 @@
 
 import { app, ipcMain, type WebContents } from 'electron'
 import { IPC } from '@shared/ipc'
-import { CLI_ERROR_MESSAGES, type IpcResult, type PortInfo } from '@shared/serial'
+import { CLI_ERROR_MESSAGES, READ_COMMANDS, type IpcResult, type PortInfo } from '@shared/serial'
 import type { RawCli } from '@shared/cli/types'
 import { CliReader } from './cliReader'
 import { CliReadError } from './transport'
@@ -56,7 +56,7 @@ export function registerSerialIpc(): void {
       if (typeof path !== 'string' || !path) throw new CliReadError('PORT_NOT_FOUND')
       await closeSession()
       const sender = event.sender
-      sender.send(IPC.readProgress, { stage: 'opening', total: 4, lines: 0 })
+      sender.send(IPC.readProgress, { stage: 'opening', total: READ_COMMANDS.length, lines: 0 })
       if (path.startsWith(TCP_PREFIX) && !SITL_ENABLED()) throw new CliReadError('PORT_NOT_FOUND', 'tcp is dev-only')
       const transport = path.startsWith(TCP_PREFIX) ? await openTcpTransport(path) : await openSerialTransport(path)
       const reader = new CliReader(transport, {

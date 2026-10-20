@@ -16,10 +16,12 @@ const RESPONSES = {
   status: read('meteor75-pro.status.txt'),
   'diff all': read('meteor75-pro.diff.txt'),
   'dump all': read('meteor75-pro.dump.txt'),
-  'get:craft_name': 'Meteor75 Pro'
+  'get:craft_name': 'Meteor75 Pro',
+  // 인수 없는 get: SITL 4.5.5 실측 원문 (fixtures/sitl-4.5.5/get.txt)
+  get: readFileSync(join(__dirname, '..', 'fixtures', 'sitl-4.5.5', 'get.txt'), 'utf8')
 }
 
-const FAST = { quietMs: 15, enterTimeoutMs: 300, timeouts: { version: 500, status: 500, 'diff all': 2000, 'dump all': 2000 } }
+const FAST = { quietMs: 15, enterTimeoutMs: 300, timeouts: { version: 500, status: 500, 'diff all': 2000, 'dump all': 2000, get: 2000 } }
 
 function setup(opts: Partial<FakeFcOptions> = {}, progress?: (p: ReadProgress) => void) {
   const fc = new FakeFc({ responses: RESPONSES, ...opts })
@@ -30,7 +32,7 @@ function setup(opts: Partial<FakeFcOptions> = {}, progress?: (p: ReadProgress) =
 const norm = (s: string) => s.replace(/\r/g, '').trim()
 
 describe('명령 화이트리스트', () => {
-  it.each(['#', 'version', 'status', 'diff all', 'dump all', 'get craft_name', 'get osd_vbat_pos'])('허용: %s', (c) => {
+  it.each(['#', 'version', 'status', 'diff all', 'dump all', 'get', 'get craft_name', 'get osd_vbat_pos'])('허용: %s', (c) => {
     expect(isAllowedCommand(c)).toBe(true)
   })
 
@@ -55,7 +57,6 @@ describe('명령 화이트리스트', () => {
     'get craft_name; save',
     'get craft name',
     'get ',
-    'get',
     'GET craft_name',
     ' version',
     '##',
@@ -76,7 +77,7 @@ describe('명령 화이트리스트', () => {
 })
 
 describe('CLI 읽기 절차', () => {
-  it('진입 → 이름 → 4개 명령, 보낸 문자열은 정해진 순서뿐', async () => {
+  it('진입 → 이름 → 5개 명령(마지막 get), 보낸 문자열은 정해진 순서뿐', async () => {
     const events: ReadProgress[] = []
     const { fc, reader } = setup({ chunkSize: 97 }, (p) => events.push(p))
     await reader.enterCli()
@@ -84,7 +85,7 @@ describe('CLI 읽기 절차', () => {
     const raw = await reader.readAll()
     await reader.close()
 
-    expect(fc.writes).toEqual(['#', 'get craft_name\n', 'version\n', 'status\n', 'diff all\n', 'dump all\n'])
+    expect(fc.writes).toEqual(['#', 'get craft_name\n', 'version\n', 'status\n', 'diff all\n', 'dump all\n', 'get\n'])
     for (const w of fc.writes) expect(isAllowedCommand(w.replace(/\n$/, ''))).toBe(true)
     expect(fc.closed).toBe(true)
 
@@ -92,6 +93,7 @@ describe('CLI 읽기 절차', () => {
     expect(norm(raw.status)).toBe(norm(RESPONSES.status))
     expect(norm(raw.diffAll)).toBe(norm(RESPONSES['diff all']))
     expect(norm(raw.dumpAll)).toBe(norm(RESPONSES['dump all']))
+    expect(norm(raw.get ?? '')).toBe(norm(RESPONSES.get))
 
     const snap = buildSnapshot({ craftName: 'Meteor75 Pro', readAt: '', raw })
     expect(snap.meta.firmware).toBe('Betaflight 4.5.1')
@@ -99,7 +101,7 @@ describe('CLI 읽기 절차', () => {
 
     // 진행 이벤트: 명령 0~3 순서, 수신 줄 수 증가, 마지막 done
     const indices = [...new Set(events.filter((e) => e.stage === 'command' && e.index !== undefined).map((e) => e.index))]
-    expect(indices).toEqual([0, 1, 2, 3])
+    expect(indices).toEqual([0, 1, 2, 3, 4])
     const dumpLines = events.filter((e) => e.index === 3).map((e) => e.lines)
     expect(Math.max(...dumpLines)).toBeGreaterThan(1000)
     expect(events.at(-1)?.stage).toBe('done')
