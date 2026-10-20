@@ -20,7 +20,8 @@ foreach ($tag in $Tags) {
   if (-not (Start-Sitl $tag)) { Write-Output "SITL $tag not reachable"; continue }
   $env:SITL_TAG = $tag
   $r = npx vitest run tests/sitl.write.test.ts 2>&1 | Out-String
-  if ($r -match 'Tests\s+5 passed') { Write-Output "write: PASS (5/5)" } else { Write-Output "write: FAIL"; ($r -split "`n" | Select-String -Pattern 'Error|expected|FAIL|ERROR|passed|failed|\+ |- ' | Select-Object -First 40) }
+  $r | Out-File -Encoding utf8 (Join-Path $env:TEMP "sitl-write-$tag.log")
+  if ($r -match 'Tests\s+6 passed') { Write-Output "write: PASS (6/6)" } else { Write-Output "write: FAIL"; ($r -split "`n" | Select-String -Pattern 'Error|expected|FAIL|ERROR|passed|failed|\+ |- ' | Select-Object -First 40) }
 }
 & wsl.exe -d Ubuntu-24.04 -- bash -c "~/sitl.sh stop" 2>&1 | Out-Null
 Remove-Item Env:SITL_TAG -ErrorAction SilentlyContinue

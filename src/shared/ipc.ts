@@ -28,6 +28,7 @@ export interface WriteFailureInfo {
   conflicts?: Conflict[]
   blockers?: string[]
   backup?: { txt: string; json: string }
+  beforeRaw?: RawCli
   log?: string
 }
 
@@ -38,6 +39,7 @@ export interface WriteResultInfo {
   commands: string[]
   rebooted: boolean
   backup: { txt: string; json: string }
+  beforeRaw: RawCli
   log: string
 }
 

@@ -65,7 +65,12 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
    - 백업 `<저장폴더>\backups\<이름>_<날짜시각>_before-write.txt/.bfview.json`, 로그 `<저장폴더>\logs\write_<날짜>.log`
    - 검사: `tests/writeSession.test.ts`(가짜 FC, 차단 명령), `tests/sitl.write.test.ts`(SITL 4개 버전, 오류 주입 — `scripts/sitl/run-write.ps1`)
    - SITL 은 감시 루프로 띄움(`~/sitl.sh start|powercycle|stop`) — 저장소 `scripts/sitl/sitl.sh` 를 WSL `~/sitl.sh` 로 복사해 씀
-6~7. 대기
+6. 안전장치 — 완료
+   - 차단 명령: `isGeneratedCommand` 형식 밖은 send() 에서 막힘. 12절 목록은 `tests/writeSession.test.ts` 가 하나씩 확인
+   - 12절 경고: `writeWarning()` (모터·보드 방향·수신기/포트·ARM/BEEPER/FAILSAFE 모드·페일세이프·필터) → 미리보기 표의 주의 칸과 요약
+   - 백업으로 되돌리기: `revertEdits(지금, 쓰기 직전)` → 같은 절차(1~9)로 다시. defaults 안 씀. 결과·재검증 화면의 버튼
+   - SITL 시나리오 6개(되돌리기 포함) × 4개 버전 통과 — 실패하면 출력이 `%TEMP%\sitl-write-<버전>.log`
+7. 대기
 
 ## v1 진행 상태 (SPEC 7절) — 완료, v0.1.0 배포
 1. 뼈대 — 완료

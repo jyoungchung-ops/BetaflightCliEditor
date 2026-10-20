@@ -13,6 +13,7 @@ import { readClean, WriteFlow, WriteFlowError, type WriteDeps } from '../src/mai
 import { buildSnapshot } from '../src/shared/cli/parser'
 import type { CraftSnapshot, RawCli } from '../src/shared/cli/types'
 import { valueOf, type Edits } from '../src/shared/edit/session'
+import { revertEdits } from '../src/shared/edit/writePlan'
 import { apply, loadSitl, mixedSteps } from './editMix'
 
 const TAG = process.env.SITL_TAG
@@ -111,6 +112,30 @@ describe.runIf(Boolean(TAG))(`SITL ${TAG}: 기체에 쓰기 (SPEC 11절)`, () =>
     const after = await readNow()
     expect(editedKeys.filter((k) => valueOf(after, k) !== edits[k].after)).toEqual([])
   }, 120_000)
+
+  it('백업으로 되돌리기: 쓴 뒤 차이만 같은 절차로 되돌리면 원래 설정이 된다 (defaults 안 씀)', async () => {
+    await freshSitl()
+    let flow = new WriteFlow(deps())
+    await flow.prepare(TARGET)
+    const w = await flow.execute({ base: baseOf(base), edits: editList(edits), overwriteConflicts: false })
+    expect(w.status).toBe('ok')
+    await powercycle()
+
+    const now = buildSnapshot({ craftName: base.craftName, readAt: '', raw: w.afterRaw })
+    const before = buildSnapshot({ craftName: base.craftName, readAt: '', raw: w.beforeRaw })
+    const { edits: back, skipped } = revertEdits(now, before)
+    expect(skipped).toEqual([])
+    expect(Object.keys(back).sort()).toEqual(editedKeys.slice().sort())
+
+    const log: string[] = []
+    flow = new WriteFlow(deps({ log }))
+    await flow.prepare(TARGET)
+    const r = await flow.execute({ base: baseOf(now), edits: editList(back), overwriteConflicts: false })
+    expect(r.status).toBe('ok')
+    expect(log.some((x) => /defaults/.test(x))).toBe(false)
+    await powercycle()
+    expect(changedFrom(await readNow())).toEqual([])
+  }, 180_000)
 
   it('기체가 오류로 답하면 save 없이 멈추고, 다시 켜면 원래 설정 그대로', async () => {
     await freshSitl()

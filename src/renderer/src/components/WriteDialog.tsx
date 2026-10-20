@@ -18,7 +18,7 @@ type Step =
   | { kind: 'writing' }
   | { kind: 'done'; result: WriteResultInfo }
   | { kind: 'failed'; failure: WriteFailureInfo }
-  | { kind: 'verified'; mismatches: Mismatch[] }
+  | { kind: 'verified'; mismatches: Mismatch[]; afterRaw: RawCli; beforeRaw?: RawCli }
 
 interface Props {
   base: CraftSnapshot
@@ -26,6 +26,10 @@ interface Props {
   onClose(): void
   /** 쓰기·재검증 뒤 기체의 새 원문 (성공이면 새 편집 원본) */
   onWritten(afterRaw: RawCli, result: WriteResultInfo): void
+  /** [백업으로 되돌리기]: 지금 기체(nowRaw) → 쓰기 직전(beforeRaw) 차이로 같은 절차를 다시 */
+  onRevert(nowRaw: RawCli, beforeRaw: RawCli): void
+  /** 되돌리기로 연 창이면 제목에 표시 */
+  revert?: boolean
 }
 
 const tabLabel = (id: string) => TABS.find((t) => t.id === id)?.label ?? id
@@ -72,7 +76,7 @@ function MismatchTable({ list }: { list: Mismatch[] }) {
   )
 }
 
-export function WriteDialog({ base, edits, onClose, onWritten }: Props) {
+export function WriteDialog({ base, edits, onClose, onWritten, onRevert, revert }: Props) {
   const [step, setStep] = useState<Step>({ kind: 'safety' })
   const [props, setProps] = useState(false)
   const [battery, setBattery] = useState(false)
@@ -81,6 +85,7 @@ export function WriteDialog({ base, edits, onClose, onWritten }: Props) {
   const [progress, setProgress] = useState<WriteProgressEvent | null>(null)
   const { ports, refresh } = usePorts(step.kind === 'safety')
   const rows = useMemo(() => previewRows(edits), [edits])
+  const warned = rows.filter((r) => r.warning)
   const busy = step.kind === 'reading' || step.kind === 'writing'
 
   useEffect(() => window.bfview?.onWriteProgress(setProgress), [])
@@ -119,12 +124,12 @@ export function WriteDialog({ base, edits, onClose, onWritten }: Props) {
     setStep({ kind: 'done', result: r.value })
   }
 
-  async function reverify() {
+  async function reverify(beforeRaw?: RawCli) {
     setProgress(null)
     setStep({ kind: 'reading' })
     const r = await window.bfview.writeVerify({ path, base: { craftName: base.craftName, readAt: base.readAt, raw: base.raw }, edits: Object.values(edits) })
     if (!r.ok) return setStep({ kind: 'failed', failure: r.failure })
-    setStep({ kind: 'verified', mismatches: r.value.mismatches })
+    setStep({ kind: 'verified', mismatches: r.value.mismatches, afterRaw: r.value.afterRaw, beforeRaw })
   }
 
   const commands = useMemo(() => {
@@ -140,7 +145,7 @@ export function WriteDialog({ base, edits, onClose, onWritten }: Props) {
     <div className="modal-backdrop" role="presentation" onKeyDown={(e) => e.key === 'Escape' && close()}>
       <div className="modal panel write-modal" role="dialog" aria-modal="true" aria-labelledby="write-title">
         <div className="panel-title" id="write-title">
-          기체에 쓰기 — {base.craftName} · 변경 {rows.length}개
+          {revert ? '백업으로 되돌리기' : '기체에 쓰기'} — {base.craftName} · 변경 {rows.length}개
         </div>
         <div className="panel-body modal-body">
           {step.kind === 'safety' && (
@@ -254,20 +259,32 @@ export function WriteDialog({ base, edits, onClose, onWritten }: Props) {
                       <th className="left">항목</th>
                       <th>원래 값</th>
                       <th>새 값</th>
+                      <th className="left">주의</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r) => (
-                      <tr key={r.key}>
+                      <tr key={r.key} className={r.warning ? 'warn-row' : ''}>
                         <td className="left">{tabLabel(r.tab)}</td>
                         <td className="left mono">{r.label}</td>
                         <td className="mono">{r.before}</td>
                         <td className="mono">{r.after}</td>
+                        <td className="left small">{r.warning ? <span className="warn-text">⚠ {r.warning}</span> : ''}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              {warned.length > 0 && (
+                <div className="notice warn">
+                  비행에 직접 영향을 주는 값이 {warned.length}개 있습니다:
+                  <ul>
+                    {[...new Set(warned.map((r) => r.warning))].map((w) => (
+                      <li key={w}>{w}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <details>
                 <summary>보낼 명령 원문 ({commands.length}줄)</summary>
                 <pre className="cli-pre">{commands.join('\n')}</pre>
@@ -313,6 +330,9 @@ export function WriteDialog({ base, edits, onClose, onWritten }: Props) {
               </p>
               <p className="muted small">화면은 이제 기체에서 다시 읽은 설정을 보여 줍니다.</p>
               <div className="row actions modal-actions">
+                <button type="button" className="btn" onClick={() => onRevert(step.result.afterRaw, step.result.beforeRaw)} title="쓰기 직전 설정과 다른 값만 되돌립니다 (같은 절차)">
+                  백업으로 되돌리기
+                </button>
                 <button type="button" className="btn btn-primary" onClick={onClose}>
                   닫기
                 </button>
@@ -338,7 +358,7 @@ export function WriteDialog({ base, edits, onClose, onWritten }: Props) {
               {step.failure.code === 'CLI_ENTER_FAILED' && <p className="muted small">방금 연결을 끊은 기체는 CLI 모드에 남아 있습니다. USB를 뽑았다 다시 꽂고 다시 시도하세요.</p>}
               <div className="row actions modal-actions">
                 {step.failure.applied === 'unknown' && (
-                  <button type="button" className="btn" onClick={() => void reverify()}>
+                  <button type="button" className="btn" onClick={() => void reverify(step.failure.beforeRaw)}>
                     재검증
                   </button>
                 )}
@@ -360,6 +380,11 @@ export function WriteDialog({ base, edits, onClose, onWritten }: Props) {
                 </>
               )}
               <div className="row actions modal-actions">
+                {step.beforeRaw && (
+                  <button type="button" className="btn" onClick={() => onRevert(step.afterRaw, step.beforeRaw!)}>
+                    백업으로 되돌리기
+                  </button>
+                )}
                 <button type="button" className="btn btn-primary" onClick={onClose}>
                   닫기
                 </button>

@@ -58,6 +58,8 @@ export interface WriteFailure {
   conflicts?: Conflict[]
   blockers?: string[]
   backup?: BackupPaths
+  /** 쓰기 직전에 읽은 원문 (백업과 같음) — [백업으로 되돌리기] */
+  beforeRaw?: RawCli
   log?: string
 }
 
@@ -89,6 +91,8 @@ export interface WriteResult {
   commands: string[]
   rebooted: boolean
   backup: BackupPaths
+  /** 쓰기 직전에 읽은 원문 (백업과 같음) */
+  beforeRaw: RawCli
   log: string
 }
 
@@ -109,10 +113,15 @@ export const MESSAGES = {
 }
 
 /** 읽은 원문이 온전한가: 해석 못 한 줄이 없고, diff/dump 가 save 로 끝난다 */
-export function rawLooksComplete(raw: RawCli): boolean {
+export function rawProblem(raw: RawCli): string | null {
   const ends = (t: string) => /(^|\n)save\s*$/.test(t.trim())
-  return Boolean(raw.version.trim()) && ends(raw.diffAll) && ends(raw.dumpAll) && parseCli(raw.dumpAll).unknown.length === 0 && parseCli(raw.diffAll).unknown.length === 0
+  if (!raw.version.trim()) return 'version 이 비어 있음'
+  if (!ends(raw.diffAll)) return 'diff all 이 save 로 끝나지 않음'
+  if (!ends(raw.dumpAll)) return 'dump all 이 save 로 끝나지 않음'
+  const bad = [...parseCli(raw.dumpAll).unknown, ...parseCli(raw.diffAll).unknown]
+  return bad.length ? `해석 못 한 줄: ${bad.slice(0, 3).join(' | ')}` : null
 }
+export const rawLooksComplete = (raw: RawCli) => rawProblem(raw) === null
 
 /**
  * 읽기 + 온전한지 검사, 깨졌으면 다시 (최대 3번).
@@ -124,7 +133,8 @@ export async function readClean(reader: CliReader, sleep: (ms: number) => Promis
     await sleep(1000)
     raw = await reader.readAll()
   }
-  if (!rawLooksComplete(raw)) throw new CliReadError('TIMEOUT', '읽은 내용이 깨져 있습니다 (3번 시도)')
+  const problem = rawProblem(raw)
+  if (problem) throw new CliReadError('TIMEOUT', `읽은 내용이 깨져 있습니다 (3번 시도): ${problem}`)
   return raw
 }
 
@@ -280,7 +290,8 @@ export class WriteFlow {
           applied: appliedFinal,
           command: e.command,
           response: e.response,
-          backup
+          backup,
+          beforeRaw: current.raw
         })
       }
       throw e
@@ -297,14 +308,15 @@ export class WriteFlow {
         code: f?.code ?? 'READ_FAILED',
         message: `${f?.message ?? `다시 읽지 못했습니다: ${(e as Error).message}`}\n${MESSAGES.unknown}`,
         applied: 'unknown',
-        backup
+        backup,
+        beforeRaw: current.raw
       })
     }
     await this.cancel()
     const after = buildSnapshot({ craftName: req.base.craftName, readAt: this.now().toISOString(), raw: afterRaw })
     const mismatches = verifyAfterWrite(current, after, edits)
     await this.log('info', mismatches.length ? `재검증 불일치 ${mismatches.length}개: ${mismatches.map((m) => m.key).join(', ')}` : '재검증: 모두 일치')
-    return { status: mismatches.length ? 'mismatch' : 'ok', afterRaw, mismatches, commands, rebooted, backup, log: this.logPath }
+    return { status: mismatches.length ? 'mismatch' : 'ok', afterRaw, mismatches, commands, rebooted, backup, beforeRaw: current.raw, log: this.logPath }
   }
 
   /** save 뒤: noreboot 이면 같은 연결, 재부팅이면 15초 안에 다시 찾아 연결 */

@@ -3,6 +3,7 @@ import { TABS, type TabId } from '@shared/tabs'
 import { buildSnapshot } from '@shared/cli/parser'
 import type { CraftSnapshot, RawCli } from '@shared/cli/types'
 import type { FileResult, OpenedFile } from '@shared/ipc'
+import { revertEdits } from '@shared/edit/writePlan'
 import { changesFileName, changesFileText, fullDiffFileName, fullDiffText } from '@shared/edit/commands'
 import { editsOfSavedFile, FileFormatError, fromSavedFile, looksLikeSavedFile, rawFromCliText, toSavedFile } from '@shared/files'
 import {
@@ -66,6 +67,8 @@ export default function App() {
   const [savedEdits, setSavedEdits] = useState<Edits>(editState.edits)
   const [editing, setEditing] = useState(false)
   const [writing, setWriting] = useState(false)
+  const [revertMode, setRevertMode] = useState(false)
+  const [writeKey, setWriteKey] = useState(0)
   const base = loaded?.snap ?? null
   const edits = editState.edits
   const editCount = Object.keys(edits).length
@@ -263,6 +266,27 @@ export default function App() {
     setSavedEdits({})
   }
 
+  /** 백업으로 되돌리기: 지금 기체를 원본으로, 쓰기 직전 값과 다른 것만 편집으로 만들어 같은 절차(1~9)를 다시 연다 */
+  function startRevert(nowRaw: RawCli, beforeRaw: RawCli) {
+    if (!loaded) return
+    const name = loaded.snap.craftName
+    const now = buildSnapshot({ craftName: name, readAt: new Date().toISOString(), raw: nowRaw })
+    const before = buildSnapshot({ craftName: name, readAt: '', raw: beforeRaw })
+    const { edits: back, skipped } = revertEdits(now, before)
+    setLoaded({ snap: now, file: undefined, dirty: true })
+    setEditState({ ...emptyEditState(), edits: back })
+    setSavedEdits({})
+    setEditing(true)
+    if (Object.keys(back).length === 0) {
+      setWriting(false)
+      setToast({ kind: 'ok', text: '쓰기 직전 설정과 같습니다. 되돌릴 값이 없습니다.' })
+      return
+    }
+    if (skipped.length) setToast({ kind: 'error', text: `되돌릴 수 없는 항목 ${skipped.length}개: ${skipped.slice(0, 5).join(', ')}` })
+    setRevertMode(true)
+    setWriteKey((k) => k + 1) // 창을 처음 단계부터 다시
+  }
+
   function rename(craftName: string) {
     if (loaded) setLoaded({ ...loaded, snap: { ...loaded.snap, craftName }, dirty: true })
   }
@@ -355,7 +379,20 @@ export default function App() {
         />
       )}
 
-      {writing && base && <WriteDialog base={base} edits={edits} onClose={() => setWriting(false)} onWritten={(raw) => written(raw)} />}
+      {writing && base && (
+        <WriteDialog
+          key={writeKey}
+          base={base}
+          edits={edits}
+          revert={revertMode}
+          onClose={() => {
+            setWriting(false)
+            setRevertMode(false)
+          }}
+          onWritten={(raw) => written(raw)}
+          onRevert={startRevert}
+        />
+      )}
 
       {pending && (
         <NameModal

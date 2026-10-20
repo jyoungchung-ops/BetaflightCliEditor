@@ -113,6 +113,62 @@ export function verifyAfterWrite(before: CraftSnapshot, after: CraftSnapshot, ed
   return out
 }
 
+// ── 12절: 추가 경고가 필요한 값 ─────────────────────────
+
+const WARN_MOTOR = '모터 방향·동작이 바뀔 수 있음. 프롭 없이 모터 탭에서 확인'
+const WARN_ALIGN = '자세 인식이 틀리면 이륙 즉시 추락'
+const WARN_RX = '조종기가 인식되지 않거나 O4 항전기 연결이 끊길 수 있음'
+const WARN_MODE = '시동 스위치가 바뀜'
+const WARN_FAILSAFE = '신호 상실 시 동작이 바뀜'
+const WARN_FILTER = '모터 과열 위험. 첫 비행은 짧게 하고 모터 온도 확인'
+
+const SET_WARNINGS: [RegExp, string][] = [
+  [/^(motor_pwm_protocol|dshot_bidir|motor_poles|yaw_motors_reversed|mixer|mixer_type)$/, WARN_MOTOR],
+  [/^(align_board_|gyro_\d_sensor_align|gyro_\d_align_)/, WARN_ALIGN],
+  [/^(serialrx_provider|serialrx_inverted|serialrx_halfduplex|rx_spi_protocol)$/, WARN_RX],
+  [/^(failsafe_)/, WARN_FAILSAFE],
+  [/^(gyro_lpf|dterm_lpf|dyn_notch_|rpm_filter_|gyro_lowpass|dterm_lowpass|simplified_gyro_filter|simplified_dterm_filter)/, WARN_FILTER]
+]
+/** ARM · BEEPER · FAILSAFE (modes.ts 의 모드 id) */
+const CRITICAL_MODES = new Set([0, 13, 27])
+
+/** 편집 하나의 경고 문구 (없으면 null). before/after 를 모두 봐서 ARM 을 지우는 것도 잡는다 */
+export function writeWarning(key: string, before: string, after: string): string | null {
+  const s = parseSetKey(key)
+  if (s) return SET_WARNINGS.find(([re]) => re.test(s.name))?.[1] ?? null
+  if (key.startsWith('serial.') || key === 'map' || key === 'feature.RX_SERIAL' || key === 'feature.RX_SPI' || key === 'feature.RX_PPM') return WARN_RX
+  if (key.startsWith('rxfail.')) return WARN_FAILSAFE
+  if (key.startsWith('aux.')) {
+    const mode = (line: string) => Number(line.split(/\s+/)[2])
+    return CRITICAL_MODES.has(mode(before)) || CRITICAL_MODES.has(mode(after)) ? WARN_MODE : null
+  }
+  return null
+}
+
+// ── 백업으로 되돌리기 (11절 끝) ─────────────────────────
+
+/**
+ * 지금 기체(now) → 백업(backup) 으로 돌아가는 편집. 둘 다 dump all 기준으로, 다른 값만 만든다.
+ * defaults 를 쓰는 전체 복원은 하지 않는다. 이 앱이 만들 수 없는 항목(범위 정보 없는 set 등)은 skipped 로 알려 준다.
+ */
+export function revertEdits(now: CraftSnapshot, backup: CraftSnapshot): { edits: Edits; skipped: string[] } {
+  const edits: Edits = {}
+  const skipped: string[] = []
+  const keys = new Set([...comparableKeys(now), ...comparableKeys(backup)])
+  for (const key of keys) {
+    const cur = valueOf(now, key)
+    const want = valueOf(backup, key)
+    if (cur === want) continue
+    const s = parseSetKey(key)
+    if (cur === undefined || want === undefined || (s && !now.schema?.[s.name])) {
+      skipped.push(key)
+      continue
+    }
+    edits[key] = { key, before: cur, after: want, scope: s ? s.scope : 'line' }
+  }
+  return { edits, skipped }
+}
+
 /** 미리보기 표 한 줄 (탭 / 항목 / 원래 값 / 새 값) */
 export interface PreviewRow {
   tab: string
@@ -120,6 +176,8 @@ export interface PreviewRow {
   label: string
   before: string
   after: string
+  /** 12절 경고 */
+  warning: string | null
 }
 
 export function previewRows(edits: Edits): PreviewRow[] {
@@ -127,7 +185,7 @@ export function previewRows(edits: Edits): PreviewRow[] {
     .map((e) => {
       const s = parseSetKey(e.key)
       const label = s ? (s.scope === 'master' ? s.name : `${s.name} (${s.scope === 'pid' ? 'PID' : s.scope === 'rate' ? '레이트' : '배터리'} 프로필 ${s.profile + 1})`) : e.key
-      return { tab: tabOfKey(e.key), key: e.key, label, before: e.before, after: e.after }
+      return { tab: tabOfKey(e.key), key: e.key, label, before: e.before, after: e.after, warning: writeWarning(e.key, e.before, e.after) }
     })
     .sort((a, b) => a.tab.localeCompare(b.tab) || a.key.localeCompare(b.key))
 }

@@ -585,3 +585,9 @@ code {
     transform: rotate(360deg);
   }
 }
+.grid-table tr.warn-row {
+  background: rgba(255, 187, 0, 0.08);
+}
+.warn-text {
+  color: var(--accent);
+}
