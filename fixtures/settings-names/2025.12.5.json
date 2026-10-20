@@ -763,5 +763,6 @@
   "roll_rate_limit",
   "pitch_rate_limit",
   "yaw_rate_limit"
- ]
+ ],
+ "battery": []
 }

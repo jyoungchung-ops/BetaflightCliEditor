@@ -87,6 +87,98 @@ drone-check README의 "4.5.4+ / 2025.x는 `#`로 진입이 안 된다"는 말은
 - `drone_check/cli_session.py:26–40` `supports_framed_cli()`: 4.5.4 이상이면 STX/ETX만 씁니다. docstring의 "raw `#` CLI-enter byte를 무시한다"는 위 ①과 맞지 않습니다.
 - `cli_session.py:68`: `'#'` 진입 시 `"#\r"`를 보냅니다 → ③의 취소 조건에 걸릴 수 있습니다.
 
+## v2 0단계: 편집·쓰기에 필요한 CLI 동작 (소스 조사, SITL 확인 전)
+
+SPEC 13절 0단계 중 소스만으로 확인할 수 있는 부분이다. SITL로 실제 출력을 받아 확인하는 일은 남아 있다(아래 "SITL로 확인할 것").
+
+### `get` (인수 없음) = 모든 설정의 값·범위·기본값
+- `get <이름>`은 이름에 `<이름>`이 **포함된** 설정을 모두 출력한다(`strcasestr`). 인수가 없으면 빈 문자열이 모든 이름과 맞으므로 **전체 설정**이 나온다(4.5.3 cli.c:4339–4340, 2025.12.5 cli.c:4418).
+- 항목마다 출력 순서(4.5.3 cli.c:4345–4362):
+  1. `이름 = 값`
+  2. PID·레이트 프로필 값이면 `profile N` / `rateprofile N` 줄 (현재 활성 프로필 기준)
+  3. 범위 한 줄 (`cliPrintVarRange`, 4.5.3 cli.c:809–860):
+     - `Allowed range: <min> - <max>` (숫자)
+     - `Allowed values: A, B, C` (열거형), `Allowed values: OFF, ON` (불)
+     - `Array length: N` (배열), `String length: <min> - <max>` (문자열)
+  4. `Default value: <값>` (`cliPrintVarDefault`, 4.5.3 cli.c:4314–4318)
+- 읽기 명령이며 설정을 바꾸지 않는다. 기본값 계산을 위해 RAM에서 설정을 백업·초기화·복원한다(`backupAndResetConfigs` / `restoreConfigs`, 4.5.3 cli.c:4337, 4368). EEPROM에는 쓰지 않는다.
+- 앱 화이트리스트는 지금 `get <이름>`만 허용한다(`[a-z0-9_]{1,64}`). v2에서 인수 없는 `get`을 추가하려면 화이트리스트에 정확히 `get` 한 단어만 추가한다.
+
+### 오류 문구 (쓰기 응답 검사용)
+- 모든 CLI 오류는 `###ERROR IN <명령>: <내용>###` 형식이다(`cliPrintErrorVa`, 4.5.3 cli.c:431–442, 2025.12.5 cli.c:442–453). 끝에도 `###`이 붙는다.
+- `set`: `INVALID NAME: <이름>`, `INVALID VALUE`, `STRING MUST BE 1-<n> CHARACTERS OR '-' FOR EMPTY` (4.5.3 / 2025.12.5 같음)
+- 그 밖: `PARSING FAILED`, `INVALID ARGUMENT COUNT`, `<이름> NOT BETWEEN <a> AND <b>`, `ARGUMENT OUT OF RANGE`
+- 모르는 명령: 대화형은 `###ERROR IN input: UNKNOWN COMMAND, TRY 'HELP'###`, STX/ETX 비대화형은 `ERR_CMD_NA: <명령>`(4.5.4 cli.c:6695–6700)
+- → 응답 검사는 **`###ERROR` 포함 여부**와 비대화형의 **`ERR_CMD_NA:`** 로 한다. SPEC 11절의 "`Invalid`, `Unknown`" 같은 단어 검사는 정상 출력에도 걸릴 수 있어 쓰지 않는다.
+
+### `batch` 와 `save` — 오류가 있으면 저장이 거부된다
+- `batch start` 뒤에 오류가 하나라도 나면 플래그가 서고(cli.c `commandBatchError`, 4.5.3:445–447), **그 상태의 `save`는 저장하지 않는다**(`prepareSave`/`tryPrepareSave`, 2025.12.5 cli.c:4268–4274). 2026.6.2는 `ERRORS WERE DETECTED - PLEASE REVIEW BEFORE CONTINUING` + `PLEASE FIX ERRORS THEN 'SAVE'`를 출력한다(cli.c:5022).
+- 그런데 **`batch end`는 이 플래그를 지운다**(2025.12.5 cli.c:4255–4261). `batch end` → `save` 순서이면 오류가 있어도 저장된다.
+- 펌웨어의 실제 `diff all` / `dump all` 출력은 `batch start`로 시작해 **`batch end` 없이 `save`로 끝난다**(사용자 Pavo20 2025.12.2 덤프에서 확인).
+- → **SPEC 10절의 내보내기 예시(`batch end` 다음 `save`)는 펌웨어 방식과 다르고 보호 장치를 잃는다.** 펌웨어 출력대로 `batch start` … `save`(batch end 없음)로 만든다.
+
+### `save noreboot`
+| 펌웨어 | `save` | `save noreboot` |
+| --- | --- | --- |
+| 4.5.3 | 저장 후 재부팅 | 없음 (인수 무시 → 재부팅) |
+| 4.5.4·4.5.5 | 저장 후 재부팅 | 저장만, 재부팅 안 함 (4.5.5 cli.c:4248) |
+| 2025.12.5·2026.6.2 | 같음 | 같음 (2025.12.5 cli.c:4317) |
+
+- 4.5.4+에서 `save noreboot`을 쓰면 재부팅·COM 포트 재탐색 없이 같은 연결에서 바로 다시 읽어 재검증할 수 있다(SPEC 11절 7~8단계를 단순화). 저장한 값 중 재부팅해야 적용되는 것(포트·수신기·모터 프로토콜 등)이 있으므로, 재검증 뒤에는 사용자에게 재부팅(USB 다시 꽂기)을 안내한다.
+
+### 쓰기에 쓸 CLI 진입 방식 (결정 필요)
+| | `'#'` 대화형 | `0x02` STX/ETX 비대화형 (4.5.4+) |
+| --- | --- | --- |
+| 응답 경계 | 프롬프트 `"\r\n# "` | 명령마다 `STX … ETX` |
+| 에코 | 있음(지워서 비교) | 없음 |
+| 세션 길이 | 제한 없음 | **진입 후 2초**가 지나 도착한 바이트에서 종료(cli.c 6794). 명령 하나씩 새 세션 |
+| `batch` 오류 보호 | 한 세션 안에서 batch → save 가능 | 세션이 명령마다 끊기면 batch 상태가 이어지는지 SITL 확인 필요 |
+| 4.5.3 | 됨 | **없음** |
+
+→ 4.5.3(Meteor75 Pro)을 지원하려면 쓰기는 **`'#'` 대화형**이 기본이 된다. STX/ETX는 4.5.4+에서 읽기(아밍 금지·재연결 없음)에만 쓰는 쪽이 단순하다. 최종 결정은 SITL 확인 후.
+
+### SITL 실측 결과 (2026-10-20, WSL2 Ubuntu 24.04)
+
+SITL을 4.5.3 · 4.5.5 · 2025.12.5 · 2026.6.2로 빌드해(`make TARGET=SITL` / `make SITL`, 2025.12는 `make configs` 후) TCP 127.0.0.1:5761로 시험했다.
+- 원문: `fixtures/sitl-<버전>/` (version·status·diff·dump·read-result.json·probe.json)
+- 재실행: `scripts/sitl/run-all.ps1`
+- 검사: `tests/sitlFixtures.test.tsx`
+
+| 확인 항목 | 4.5.3 | 4.5.5 | 2025.12.5 | 2026.6.2 |
+| --- | --- | --- | --- | --- |
+| **앱 리더(`'#'` + 화이트리스트)로 4개 명령 읽기** | ✅ 1.2초 | ✅ 1.1초 | ✅ 1.2초 | ✅ 1.1초 |
+| 해석 못 한 줄 | 0 | 0 | 0 | 0 (수정 후 — 아래 배터리 프로필) |
+| 배너 | `type 'exit' to return` | `type 'exit' to reboot` | 같음 | 같음 |
+| STX/ETX 비대화형 (`STX version LF ETX`) | ❌ 응답 없음 | ✅ `STX # Betaflight … ETX` | ✅ | ✅ |
+| STX/ETX 모르는 명령 | — | `ERR_CMD_NA: nosuchcmd` | 같음 | 같음 |
+| 인수 없는 `get` | 1060줄, 0.42초 | 1060줄 | 1132줄 | 1351줄 |
+| 없는 이름 `set` | `###ERROR IN set: INVALID NAME: no_such_setting = 1###` | 같음 | 같음 | 같음 |
+| 범위 밖·열거형 오타 | `###ERROR IN set: INVALID VALUE###` + `Allowed range/values` 줄 | 같음 | 같음 | 같음 |
+| 성공한 `set` | `craft_name set to PROBE` | 같음 | 같음 | 같음 |
+| 모르는 명령(대화형) | `###ERROR IN input: UNKNOWN COMMAND, TRY 'HELP'###` | 같음 | 같음 | 같음 |
+| `batch start` → 오류 → `save` | ✅ **저장 거부** (`###ERROR IN save: ERRORS WERE DETECTED …###`, `PLEASE FIX ERRORS THEN 'SAVE'`) | ✅ | ✅ | ✅ |
+| `save noreboot` | ❌ 재부팅함 (`Rebooting`, 연결 끊김) | ✅ `# saving`, 연결 유지, 값 저장됨 | ✅ | ✅ |
+
+**실측으로 새로 알게 된 것**
+- **`get`의 `Default value:` 줄은 현재 값이 기본값과 다를 때만 나온다.** 기본 상태 SITL에서는 0줄이었다. 바꾼 뒤 `get craft_name`에서 `Default value: -`가 나왔다. → 스키마(범위·허용값)는 `get`에서, 기본값은 `diff all`과 비교해서 얻는다.
+- **연결을 끊어도 FC는 CLI 모드에 남는다.** 다시 연결해 `'#'`을 보내면 CLI 안에서는 주석 문자라 응답이 없고, 다음 명령 앞에 붙어 `#get`처럼 무시된다. 앱이 "USB를 뽑았다 다시 꽂으세요"라고 안내하는 이유가 실제로 확인됐다. 쓰기 절차에서는 진입 실패 시 같은 안내를 해야 한다.
+- **2026.6부터 배터리 설정이 `battery_profile 0~2` 섹션으로 나뉜다** (`bat_capacity`, `vbat_*_cell_voltage`, `cbat_alert_percent`, `force_battery_cell_count`, `battery_profile_name` — settings.h `PROFILE_BATTERY_VALUE`). `waypoint` 줄도 새로 생겼다.
+  - 기존 파서는 이 `set` 줄들을 **마지막 레이트 프로필에 잘못 넣고** 있었다.
+  - → 파서에 `battery_profile` 범위를 추가하고(키 `battery.N.<키>`), 전원 탭에 배터리 프로필 패널을 넣었다. 키 목록 추출기도 battery 섹션을 구분하도록 고쳤다.
+- SITL 빌드는 OSD·GPS·VTX 등이 빠져 master 키가 186~275개로 실기체보다 적다. 키 이름·형식 확인용이며, 탭 화면의 최종 확인은 실기체 덤프로 한다.
+
+### 0단계 결론 — v2 쓰기 방식
+
+1. **진입은 `'#'` 대화형으로 한다.** 모든 버전에서 동작하고, 4.5.3(Meteor75 Pro)에는 STX/ETX가 없다. STX/ETX는 쓰기에 쓰지 않는다.
+2. **전송 순서는 펌웨어 `diff all`과 같게 `batch start` → 변경 명령 → `save`로 하고, `batch end`는 넣지 않는다.** 앱이 줄마다 `###ERROR`를 검사해 하나라도 있으면 `save`를 보내지 않는다. 그래도 `save`가 나가면 펌웨어가 저장을 거부한다(4개 버전 실측). 이중 보호다.
+   - SPEC 10절 내보내기 예시의 `batch end`는 빼야 한다.
+3. **오류 판정은 응답에 `###ERROR`가 있는지로 한다.** 성공한 `set`은 `<이름> set to <값>`을 출력하므로, 이 줄이 있는지도 함께 확인할 수 있다.
+4. **재검증:**
+   - 4.5.4+: `save noreboot` → 같은 연결에서 다시 읽어 대조 → 사용자에게 USB 다시 꽂기 안내
+   - 4.5.3: `save`가 항상 재부팅하므로 재연결(SPEC 11절 7단계) 후 대조
+5. **스키마:** 읽기 화이트리스트에 인수 없는 `get`(정확히 `get` 한 단어)을 추가하면 범위·허용값을 0.4초 안에 받을 수 있다(SPEC 9절).
+6. 쓰기를 허용할 펌웨어는 실측한 계열(4.5.x, 2025.12.x, 2026.6.x)로 한정하고, 그 밖은 "이 펌웨어는 아직 쓰기를 지원하지 않습니다"로 막는다(SPEC 11절).
+
 ## 2025.12 설정 변경과 파서·화면 대응 (3단계)
 
 SITL은 건너뛰었습니다. 대신 각 태그의 `src/main/cli/settings.c`에서 설정 이름과 섹션을 모두 뽑아 `fixtures/settings-names/{4.5.5,2025.12.5,2026.6.2}.json`에 두었습니다. 테스트(`tests/firmwareCompat.test.tsx`)는 **화면과 샘플이 쓰는 키 이름이 이 실제 목록에 있는지** 검사합니다.

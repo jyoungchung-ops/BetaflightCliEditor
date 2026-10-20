@@ -161,7 +161,7 @@ describe('FC 쓰기 경로 (소스 검사)', () => {
     const hits = sources.flatMap((s) =>
       [...s.text.matchAll(/\.write\s*\(/g)].map(() => s.path)
     )
-    expect(hits.sort()).toEqual(['main/serial/cliReader.ts', 'main/serial/serialTransport.ts'])
+    expect(hits.sort()).toEqual(['main/serial/cliReader.ts', 'main/serial/serialTransport.ts', 'main/serial/tcpTransport.ts'])
   })
 
   it('cliReader의 transport.write는 send() 안 한 곳뿐이고 그 앞에서 화이트리스트를 검사한다', () => {

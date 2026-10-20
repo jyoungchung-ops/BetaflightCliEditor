@@ -143,14 +143,6 @@
   "align_board_pitch",
   "align_board_yaw",
   "gimbal_mode",
-  "battery_profile_name",
-  "bat_capacity",
-  "vbat_max_cell_voltage",
-  "vbat_full_cell_voltage",
-  "vbat_min_cell_voltage",
-  "vbat_warning_cell_voltage",
-  "cbat_alert_percent",
-  "force_battery_cell_count",
   "vbat_hysteresis",
   "current_meter",
   "battery_meter",
@@ -821,5 +813,15 @@
   "roll_rate_limit",
   "pitch_rate_limit",
   "yaw_rate_limit"
+ ],
+ "battery": [
+  "battery_profile_name",
+  "bat_capacity",
+  "vbat_max_cell_voltage",
+  "vbat_full_cell_voltage",
+  "vbat_min_cell_voltage",
+  "vbat_warning_cell_voltage",
+  "cbat_alert_percent",
+  "force_battery_cell_count"
  ]
 }

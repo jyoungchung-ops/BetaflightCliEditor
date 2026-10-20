@@ -147,6 +147,8 @@ export interface CraftMeta {
   board: string
   activePidProfile: number
   activeRateProfile: number
+  /** 2026.6+ 배터리 프로필 (battery_profile N) */
+  activeBatteryProfile?: number
   /** 예: "Betaflight" */
   firmwareName?: string
   /** 예: "4.5.1" */
@@ -177,6 +179,8 @@ export interface ParsedCli {
   master: Record<string, string>
   pidProfiles: Record<string, string>[]
   rateProfiles: Record<string, string>[]
+  batteryProfiles: Record<string, string>[]
+  waypoints: string[]
   features: Record<string, boolean>
   serial: SerialPortCfg[]
   aux: AuxRange[]
@@ -210,6 +214,10 @@ export interface CraftSnapshot {
   master: Record<string, string>
   pidProfiles: Record<string, string>[]
   rateProfiles: Record<string, string>[]
+  /** 2026.6+ 배터리 프로필별 set 값 (없는 펌웨어는 undefined) */
+  batteryProfiles?: Record<string, string>[]
+  /** 2026.6+ waypoint 줄 (보기만) */
+  waypoints?: string[]
   features: Record<string, boolean>
   serial: SerialPortCfg[]
   aux: AuxRange[]

@@ -106,6 +106,8 @@ function emptyParsed(): ParsedCli {
     master: {},
     pidProfiles: [],
     rateProfiles: [],
+    batteryProfiles: [],
+    waypoints: [],
     features: {},
     serial: [],
     aux: [],
@@ -142,7 +144,7 @@ function onOff(token: string): [string, boolean] {
  */
 export function parseCli(text: string): ParsedCli {
   const p = emptyParsed()
-  type Scope = { kind: 'master' } | { kind: 'pid'; n: number } | { kind: 'rate'; n: number }
+  type Scope = { kind: 'master' } | { kind: 'pid'; n: number } | { kind: 'rate'; n: number } | { kind: 'battery'; n: number }
   let scope: Scope = { kind: 'master' }
   const keys = new Set<string>()
   const key = (k: string) => keys.add(k)
@@ -175,12 +177,28 @@ export function parseCli(text: string): ParsedCli {
         } else if (scope.kind === 'pid') {
           ;(p.pidProfiles[scope.n] ??= {})[k] = v
           key(`pid.${scope.n}.${k}`)
+        } else if (scope.kind === 'battery') {
+          ;(p.batteryProfiles[scope.n] ??= {})[k] = v
+          key(`battery.${scope.n}.${k}`)
         } else {
           ;(p.rateProfiles[scope.n] ??= {})[k] = v
           key(`rate.${scope.n}.${k}`)
         }
         continue
       }
+      // 2026.6+: 배터리 설정이 battery_profile N 섹션으로 나뉜다 (cli/settings.h PROFILE_BATTERY_VALUE)
+      case 'battery_profile': {
+        const n = Number(t[0])
+        if (!Number.isInteger(n)) break
+        scope = { kind: 'battery', n }
+        p.batteryProfiles[n] ??= {}
+        p.meta.activeBatteryProfile = n
+        continue
+      }
+      // 2026.6+: 웨이포인트 (보기만, 해석하지 않음)
+      case 'waypoint':
+        p.waypoints.push(rest)
+        continue
       case 'profile': {
         const n = Number(t[0])
         if (!Number.isInteger(n)) break
@@ -419,7 +437,8 @@ export function buildSnapshot({ craftName, readAt, raw }: SnapshotInput): CraftS
     target: metaSrc.target ?? '',
     board: metaSrc.board ?? '',
     activePidProfile: main.meta.activePidProfile ?? 0,
-    activeRateProfile: main.meta.activeRateProfile ?? 0
+    activeRateProfile: main.meta.activeRateProfile ?? 0,
+    ...(main.batteryProfiles.length ? { activeBatteryProfile: main.meta.activeBatteryProfile ?? 0 } : {})
   }
 
   return {
@@ -431,6 +450,8 @@ export function buildSnapshot({ craftName, readAt, raw }: SnapshotInput): CraftS
     master: main.master,
     pidProfiles: main.pidProfiles,
     rateProfiles: main.rateProfiles,
+    ...(main.batteryProfiles.length ? { batteryProfiles: main.batteryProfiles } : {}),
+    ...(main.waypoints.length ? { waypoints: main.waypoints } : {}),
     features: main.features,
     serial: main.serial,
     aux: main.aux,

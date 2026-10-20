@@ -1,8 +1,58 @@
+import { useState } from 'react'
 import { masterKeysForTab } from '@shared/mapping/tabKeys'
-import { Columns, FieldList, RestOfMaster, TabFrame, Panel, cent, namesOf, type FieldDef } from '../ui/widgets'
+import { Columns, Field, FieldList, KeyHint, RestOfMaster, TabFrame, Panel, cent, namesOf, type FieldDef } from '../ui/widgets'
 import { useSnap } from '../ui/snapshot'
 
 const V = { unit: 'V', format: cent }
+
+/** 2026.6+ 배터리 프로필 키 (cli/settings.c PROFILE_BATTERY_VALUE) */
+const BATTERY_PROFILE: FieldDef[] = [
+  ['battery_profile_name', '프로필 이름'],
+  ['vbat_max_cell_voltage', '셀 최대 전압', V],
+  ['vbat_full_cell_voltage', '셀 완충 전압', V],
+  ['vbat_warning_cell_voltage', '셀 경고 전압', V],
+  ['vbat_min_cell_voltage', '셀 최저 전압', V],
+  ['bat_capacity', '배터리 용량', { unit: 'mAh', hint: '0 = 사용 안 함' }],
+  ['cbat_alert_percent', '용량 경고 시점', { unit: '%' }],
+  ['force_battery_cell_count', '셀 수 고정', { hint: '0 = 자동 감지' }]
+]
+
+/** 배터리 프로필(2026.6+) 값 — 프로필을 골라 본다. 정해진 키 밖의 값도 빠짐없이 아래에 나온다 */
+function BatteryProfiles({ profiles, active }: { profiles: Record<string, string>[]; active: number }) {
+  const { changed } = useSnap()
+  const [n, setN] = useState(active)
+  const p = profiles[n] ?? {}
+  const shown = new Set(BATTERY_PROFILE.map(([k]) => k))
+  const rows: FieldDef[] = [...BATTERY_PROFILE.filter(([k]) => p[k] !== undefined), ...Object.keys(p).filter((k) => !shown.has(k)).map((k): FieldDef => [k, k])]
+  return (
+    <Panel
+      title="배터리 프로필"
+      right={
+        <select className="select" value={n} onChange={(e) => setN(Number(e.target.value))} aria-label="배터리 프로필">
+          {profiles.map((bp, i) => (
+            <option key={i} value={i}>
+              {i + 1}
+              {bp?.battery_profile_name && bp.battery_profile_name !== '-' ? ` · ${bp.battery_profile_name}` : ''}
+              {i === active ? ' (활성)' : ''}
+            </option>
+          ))}
+        </select>
+      }
+    >
+      {rows.map(([k, label, o]) => (
+        <Field
+          key={k}
+          label={label}
+          value={o?.format ? o.format(p[k]) : p[k]}
+          unit={o?.unit}
+          k={`battery.${n}.${k}`}
+          hint={<KeyHint name={k} hint={o?.hint} />}
+        />
+      ))}
+      {rows.some(([k]) => changed.has(`battery.${n}.${k}`)) && <p className="muted small">노란 테두리 = 기본값과 다른 값</p>}
+    </Panel>
+  )
+}
 
 const BATTERY: FieldDef[] = [
   ['battery_meter', '전압계 종류'],
@@ -45,7 +95,10 @@ export function PowerTab() {
   return (
     <TabFrame title="전원·배터리" en="Power & Battery">
       <Columns>
-        <Panel title="배터리">
+        {snap.batteryProfiles?.length ? (
+          <BatteryProfiles profiles={snap.batteryProfiles} active={snap.meta.activeBatteryProfile ?? 0} />
+        ) : null}
+        <Panel title={snap.batteryProfiles?.length ? '배터리 (공통)' : '배터리'}>
           <FieldList items={BATTERY} />
         </Panel>
         <Panel title="전압계">

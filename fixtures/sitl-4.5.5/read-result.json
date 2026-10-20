@@ -1,0 +1,35 @@
+{
+  "tag": "4.5.5",
+  "ms": 1138,
+  "writes": [
+    "#",
+    "get craft_name\n",
+    "version\n",
+    "status\n",
+    "diff all\n",
+    "dump all\n"
+  ],
+  "craftName": "-",
+  "firmware": "Betaflight 4.5.5",
+  "target": "SITL",
+  "lines": {
+    "version": 2,
+    "status": 11,
+    "diff": 41,
+    "dump": 868
+  },
+  "master": 186,
+  "pidProfiles": 4,
+  "rateProfiles": 4,
+  "serial": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "unknown": []
+}

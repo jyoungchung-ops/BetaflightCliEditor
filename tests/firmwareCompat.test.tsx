@@ -14,8 +14,8 @@ import { TAB_VIEWS } from '../src/renderer/src/tabs'
 import { SnapshotProvider } from '../src/renderer/src/ui/snapshot'
 import type { TabId } from '../src/shared/tabs'
 
-type Names = { master: string[]; pid: string[]; rate: string[] }
-type Section = keyof Names
+type Names = { master: string[]; pid: string[]; rate: string[]; battery?: string[] }
+type Section = 'master' | 'pid' | 'rate'
 
 const ROOT = join(__dirname, '..')
 const NAMES_DIR = join(ROOT, 'fixtures', 'settings-names')
@@ -26,7 +26,9 @@ const VERSIONS = readdirSync(NAMES_DIR).filter((f) => f.endsWith('.json')).map((
 const NAMES: Record<string, Names> = Object.fromEntries(
   VERSIONS.map((v) => [v, JSON.parse(readFileSync(join(NAMES_DIR, `${v}.json`), 'utf8'))])
 )
-const inAny = (section: Section, key: string) => VERSIONS.some((v) => NAMES[v][section].includes(key))
+// 2026.6+ 배터리 키는 battery 섹션(battery_profile N)에 있다 — 화면에서는 master 처럼 쓰므로 master 검사에 포함
+const inAny = (section: Section, key: string) =>
+  VERSIONS.some((v) => NAMES[v][section].includes(key) || (section === 'master' && (NAMES[v].battery ?? []).includes(key)))
 
 /** 샘플의 펌웨어 계열 → 비교할 실제 목록 */
 const NAMES_FOR: Record<string, string> = { '4.5': '4.5.5', '2025.12': '2025.12.5' }

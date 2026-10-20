@@ -3,8 +3,18 @@
 Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구조로 보여주는 **읽기 전용** Electron 앱. 전체 요구사항은 [docs/SPEC.md](docs/SPEC.md).
 
 ## 절대 원칙
-- FC에 쓰기 명령을 보내지 않는다. 송신 함수는 하나만 두고 화이트리스트(`#`, `version`, `status`, `diff all`, `dump all`, `get <이름>`)만 허용한다.
+- 보기·편집 모드에서는 FC에 쓰기 명령을 보내지 않는다. 읽기 송신 함수(`CliReader.send()`)는 하나만 두고 화이트리스트(`#`, `version`, `status`, `diff all`, `dump all`, `get <이름>`)만 허용한다.
 - Betaflight 로고·이름을 UI에 쓰지 않는다. configurator(GPL) 코드는 복사하지 않고 구조만 참고한다.
+
+## v2 (Betaflight CLI Editor) 규칙 — SPEC 8~13절, 작업 브랜치 `v2`
+- **0단계 결론 전에는 기체에 쓰는 코드(SPEC 13절 5단계)를 만들지 않는다.** 0단계 결과는 `docs/cli-compat.md`에 적는다.
+- 앱은 항상 보기 모드로 시작한다. 편집은 상단 바 [편집] 토글, 쓰기는 편집 모드의 [기체에 쓰기] + 11절 절차(안전 확인 → 읽기 → 일치 검사 → 백업 → 미리보기·이름 입력 → 전송 → save → 재검증)로만.
+- 읽기 화이트리스트는 그대로 둔다. 쓰기 송신은 **별도 함수 `writeSession`** 하나로만 하고, 11절 절차 안에서만 호출된다. 소스 검사 테스트로 이를 지킨다(v1의 `tests/cliReader.test.ts` 방식).
+- `writeSession`이 보낼 수 있는 것: SPEC 10절 표의 생성 명령(`set`, `feature`, `aux`, `adjrange`, `serial`, `map`, `rxfail`) + `profile`, `rateprofile`, `batch`, `save` 뿐. 그 밖은 차단(12절 목록: `defaults`, `bl`, `dfu`, `flash_erase`, `resource`, `timer`, `dma`, `msc`, `serialpassthrough`, `motor`, `play_sound`, `vtx_info` 등).
+- MSP로 쓰지 않는다. 2026.6+의 `MSP2_CLI_SETTING`(0x3010)은 페이로드에 `=`가 있으면 값을 바꾸므로 보내지 않는다(`docs/cli-compat.md` ⑤).
+- 기체에는 바뀐 값만 보낸다. 전체 dump로 덮어쓰지 않고, `defaults`를 쓰는 복원도 하지 않는다.
+- 명령 생성(`buildCommands`)은 파서의 역방향이다. 생성 → 파싱 왕복 테스트로 같은 값이 나와야 한다. serial 줄 등 펌웨어별 형식은 파서가 읽은 형식을 그대로 따른다.
+- SPEC 11절의 "framed MSP-CLI" 전제는 소스 조사와 다르다: 모든 조사 버전에서 `'#'` 진입이 되고, 4.5.4+에 추가된 것은 MSP가 아닌 STX/ETX 비대화형 모드다(`docs/cli-compat.md`). 어느 쪽으로 쓸지는 0단계에서 정한다.
 
 ## 펌웨어 버전 호환성
 - CLI 진입·버전별 키 변경 조사 결과는 [docs/cli-compat.md](docs/cli-compat.md). 저녁 실기체 테스트는 [docs/hw-test-checklist.md](docs/hw-test-checklist.md)
@@ -23,7 +33,15 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
 - `npm run typecheck` / `npm test`
 - `npm run build` — electron-vite 빌드
 
-## 진행 상태 (SPEC 7절)
+## v2 진행 상태 (SPEC 13절)
+0. 선행 검증 — 완료 (`docs/cli-compat.md` "SITL 실측 결과", "0단계 결론")
+   - SITL: WSL2 Ubuntu-24.04 `~/bf-sitl/<태그>/obj/main/betaflight_SITL.elf`, 재실행 `scripts/sitl/run-all.ps1`
+   - 앱은 개발 실행에서만 `tcp://127.0.0.1:5761` (SITL) 포트를 보여 준다(`src/main/serial/tcpTransport.ts`, 배포 exe에서는 꺼짐)
+   - `scripts/sitl/probe.mjs` 는 SITL 전용 실험 도구(루프백만). 앱 코드에서 쓰지 않는다
+   - 쓰기 방식 결론: `'#'` 진입, `batch start` → 명령 → `save`(batch end 없음), `###ERROR` 검사, 4.5.4+는 `save noreboot` 후 재검증
+1~7. 대기
+
+## v1 진행 상태 (SPEC 7절) — 완료, v0.1.0 배포
 1. 뼈대 — 완료
 2. 파서 — 완료 (`src/shared/cli/parser.ts`, 합성 샘플로 테스트). 실제 덤프를 `fixtures/`에 넣으면 자동 검증
    - 설정 항목 키 체계: `master.<k>`, `pid.<n>.<k>`, `rate.<n>.<k>`, `feature.<X>`, `serial.<id>`, `aux.<i>`, `adjrange.<i>`, `rxfail.<ch>`, `led.<i>` …

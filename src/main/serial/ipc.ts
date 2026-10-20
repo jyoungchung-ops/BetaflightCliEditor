@@ -1,12 +1,17 @@
 // 시리얼 IPC 핸들러. 렌더러는 정해진 동작(목록·연결·읽기·닫기)만 요청할 수 있고 명령 문자열은 보낼 수 없다.
 
-import { ipcMain, type WebContents } from 'electron'
+import { app, ipcMain, type WebContents } from 'electron'
 import { IPC } from '@shared/ipc'
 import { CLI_ERROR_MESSAGES, type IpcResult, type PortInfo } from '@shared/serial'
 import type { RawCli } from '@shared/cli/types'
 import { CliReader } from './cliReader'
 import { CliReadError } from './transport'
 import { listPorts, openSerialTransport } from './serialTransport'
+import { TCP_PREFIX, openTcpTransport } from './tcpTransport'
+
+/** 개발 실행(npm run dev)에서만: SITL TCP 포트를 목록에 보여 주고 연결을 허용한다. 배포 exe에서는 꺼진다 */
+const SITL_ENABLED = () => !app.isPackaged
+const SITL_PORTS: PortInfo[] = [5761, 5762].map((p) => ({ path: `${TCP_PREFIX}127.0.0.1:${p}`, label: `SITL UART${p - 5760} (tcp 127.0.0.1:${p}, 개발용)`, likelyFc: false }))
 
 let session: { reader: CliReader; sender: WebContents } | null = null
 let busy = false
@@ -39,7 +44,7 @@ async function exclusive<T>(fn: () => Promise<T>): Promise<IpcResult<T>> {
 export function registerSerialIpc(): void {
   ipcMain.handle(IPC.listPorts, async (): Promise<IpcResult<PortInfo[]>> => {
     try {
-      return { ok: true, value: await listPorts() }
+      return { ok: true, value: [...(await listPorts()), ...(SITL_ENABLED() ? SITL_PORTS : [])] }
     } catch (e) {
       return fail(e)
     }
@@ -52,7 +57,8 @@ export function registerSerialIpc(): void {
       await closeSession()
       const sender = event.sender
       sender.send(IPC.readProgress, { stage: 'opening', total: 4, lines: 0 })
-      const transport = await openSerialTransport(path)
+      if (path.startsWith(TCP_PREFIX) && !SITL_ENABLED()) throw new CliReadError('PORT_NOT_FOUND', 'tcp is dev-only')
+      const transport = path.startsWith(TCP_PREFIX) ? await openTcpTransport(path) : await openSerialTransport(path)
       const reader = new CliReader(transport, {
         onProgress: (p) => {
           if (!sender.isDestroyed()) sender.send(IPC.readProgress, p)
