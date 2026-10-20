@@ -88,8 +88,9 @@ const baseOf = (s: CraftSnapshot): { craftName: string; readAt: string; raw: Raw
 const editList = (e: Edits) => Object.values(e)
 
 describe.runIf(Boolean(TAG))(`SITL ${TAG}: 기체에 쓰기 (SPEC 11절)`, () => {
-  const base = loadSitl(TAG!) // 빈 eeprom SITL 을 읽은 원문 = freshSitl() 직후와 같은 상태
-  const edits = apply(base, mixedSteps(base)).edits
+  // SITL_TAG 가 없으면(평소 npm test·CI) 건너뛰므로 픽스처도 읽지 않는다
+  const base = TAG ? loadSitl(TAG) : ({} as CraftSnapshot) // 빈 eeprom SITL 을 읽은 원문 = freshSitl() 직후와 같은 상태
+  const edits = TAG ? apply(base, mixedSteps(base)).edits : {}
   const editedKeys = Object.keys(edits)
   const changedFrom = (s: CraftSnapshot) => editedKeys.filter((k) => valueOf(s, k) !== valueOf(base, k))
 
