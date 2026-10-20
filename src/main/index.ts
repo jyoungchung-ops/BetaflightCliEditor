@@ -20,7 +20,7 @@ function createWindow(): void {
     show: false,
     backgroundColor: '#1e1e1e',
     autoHideMenuBar: true,
-    title: 'FC CLI Viewer',
+    title: 'Betaflight CLI Editor',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

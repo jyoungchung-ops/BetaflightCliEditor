@@ -12,7 +12,7 @@
   ```
   npm run dev
   ```
-  exe로 하고 싶다면 `release\FC-CLI-Viewer-0.1.0-portable.exe`를 써도 되지만, 이때는 오류 로그가 화면 메시지로만 남습니다.
+  exe로 하고 싶다면 `release\Betaflight-CLI-Editor-Portable-<버전>.exe`(v1은 `FC-CLI-Viewer-0.1.0-portable.exe`)를 써도 되지만, 이때는 오류 로그가 화면 메시지로만 남습니다.
 - [ ] **Betaflight App(Configurator)을 닫습니다.** 열려 있으면 COM 포트를 잡고 있어 "다른 프로그램이 포트를 사용 중"이 뜹니다.
 - [ ] 결과를 적을 표(맨 아래)를 띄워 둡니다.
 

@@ -78,7 +78,7 @@ export function registerFileIpc(): void {
         title: '기체 설정 저장',
         defaultPath: join(await saveDir(), saveFileName(payload.craftName)),
         filters: [
-          { name: 'FC CLI Viewer 파일', extensions: ['json'] },
+          { name: 'Betaflight CLI Editor 파일', extensions: ['json'] },
           { name: '모든 파일', extensions: ['*'] }
         ]
       })

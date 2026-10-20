@@ -1,8 +1,8 @@
 {
-  "name": "bf-cli-viewer",
-  "productName": "FC CLI Viewer",
-  "version": "0.1.0",
-  "description": "Betaflight 기체의 CLI 값을 읽어 탭 화면으로 보여주는 읽기 전용 뷰어",
+  "name": "bf-cli-editor",
+  "productName": "Betaflight CLI Editor",
+  "version": "2.0.0",
+  "description": "Betaflight 기체의 CLI 설정을 읽어 보고 편집하는 Windows 앱 (Betaflight 공식 프로그램 아님)",
   "main": "./out/main/index.js",
   "author": "클로에",
   "license": "MIT",

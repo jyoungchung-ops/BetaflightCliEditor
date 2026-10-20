@@ -71,7 +71,7 @@ export function TopBar({ craftName, firmware, readAt, offlineFile, canExport, on
     <header className="topbar">
       <div className="brand">
         <span className="brand-mark" aria-hidden />
-        <span className="brand-name">FC CLI Viewer</span>
+        <span className="brand-name">Betaflight CLI Editor</span>
       </div>
 
       <div className="topbar-info">

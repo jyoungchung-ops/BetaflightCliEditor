@@ -34,7 +34,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FC-CLI-Viewer-windows
+          name: Betaflight-CLI-Editor-windows
           path: |
             release/*.exe
             release/*.exe.blockmap

@@ -1,6 +1,8 @@
-# FC CLI Viewer
+# Betaflight CLI Editor
 
-USB로 연결한 Betaflight 기체의 CLI 설정을 읽어, Betaflight App(구 Configurator)과 비슷한 탭 화면으로 보여 주는 **읽기 전용** Windows 앱입니다.
+USB로 연결한 Betaflight 기체의 CLI 설정을 읽어, Betaflight App(구 Configurator)과 비슷한 탭 화면으로 보여 주는 Windows 앱입니다. v1의 이름은 **FC CLI Viewer**(0.1.x)였습니다.
+
+> **2.0.0은 개발 중입니다.** 이름만 바뀌었고 아직 v1과 같은 **읽기 전용**입니다. 값 편집, CLI 파일 내보내기, 기체에 쓰기는 `v2` 브랜치에서 단계별로 추가하고 있습니다([docs/SPEC.md](docs/SPEC.md) 8~13절). 쓰기 기능이 들어가도 앱은 항상 **보기 모드로 시작**하고, 기체에 쓰려면 별도 확인 절차를 거칩니다.
 
 - 기체 연결 → 기체 이름 입력 → `version`, `status`, `diff all`, `dump all` 자동 읽기
 - 설정·포트·구성·전원·페일세이프·PID 튜닝·수신기·모드·OSD·VTX 등 18개 탭
@@ -10,7 +12,7 @@ USB로 연결한 Betaflight 기체의 CLI 설정을 읽어, Betaflight App(구 C
 
 > **FC에 아무것도 쓰지 않습니다.** 앱이 보내는 명령은 `#`, `version`, `status`, `diff all`, `dump all`, `get <이름>` 뿐이며, 그 밖의 문자열은 송신 함수에서 막힙니다(테스트로 검사). `save`·`exit`도 보내지 않으므로 읽기가 끝나면 **기체 USB를 뽑았다 다시 꽂아** 주세요.
 
-이 앱은 Betaflight 프로젝트와 관련이 없는 개인 도구입니다.
+**Betaflight 공식 프로그램이 아닙니다.** 이름에 "Betaflight"가 들어가지만 Betaflight 프로젝트와 관련이 없는 개인 도구이며, Betaflight 로고는 쓰지 않습니다.
 
 ## 설치
 
@@ -18,10 +20,10 @@ USB로 연결한 Betaflight 기체의 CLI 설정을 읽어, Betaflight App(구 C
 
 | 파일 | 용도 |
 | --- | --- |
-| `FC-CLI-Viewer-Setup-<버전>.exe` | 설치판. 시작 메뉴·바탕화면 바로가기 생성, 제어판에서 제거 |
-| `FC-CLI-Viewer-<버전>-portable.exe` | 휴대용. 설치 없이 실행 (USB 메모리에 넣고 다니기) |
+| `Betaflight-CLI-Editor-Setup-<버전>.exe` | 설치판. 시작 메뉴·바탕화면 바로가기 생성, 제어판에서 제거 |
+| `Betaflight-CLI-Editor-Portable-<버전>.exe` | 휴대용. 설치 없이 실행 (USB 메모리에 넣고 다니기) |
 
-Windows 10/11 x64에서 동작하며 Node.js나 브라우저를 따로 설치할 필요가 없습니다.
+Windows 10/11 x64에서 동작하며 Node.js나 브라우저를 따로 설치할 필요가 없습니다. v1(FC CLI Viewer)과 앱 ID가 달라서 **나란히 설치**할 수 있고, 설정(마지막 저장 폴더 등)도 따로 보관됩니다.
 
 ### 처음 실행할 때 "Windows의 PC 보호" 창이 뜨면
 

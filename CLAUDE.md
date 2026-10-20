@@ -1,10 +1,10 @@
-# FC CLI Viewer
+# Betaflight CLI Editor (v1: FC CLI Viewer)
 
 Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구조로 보여주는 **읽기 전용** Electron 앱. 전체 요구사항은 [docs/SPEC.md](docs/SPEC.md).
 
 ## 절대 원칙
 - 보기·편집 모드에서는 FC에 쓰기 명령을 보내지 않는다. 읽기 송신 함수(`CliReader.send()`)는 하나만 두고 화이트리스트(`#`, `version`, `status`, `diff all`, `dump all`, `get <이름>`)만 허용한다.
-- Betaflight 로고·이름을 UI에 쓰지 않는다. configurator(GPL) 코드는 복사하지 않고 구조만 참고한다.
+- Betaflight 로고는 쓰지 않는다. 앱 이름은 SPEC 8절대로 "Betaflight CLI Editor"를 쓰되, README·설명에 "Betaflight 공식 프로그램 아님"을 밝힌다. configurator(GPL) 코드는 복사하지 않고 구조만 참고한다.
 
 ## v2 (Betaflight CLI Editor) 규칙 — SPEC 8~13절, 작업 브랜치 `v2`
 - **0단계 결론 전에는 기체에 쓰는 코드(SPEC 13절 5단계)를 만들지 않는다.** 0단계 결과는 `docs/cli-compat.md`에 적는다.
@@ -39,7 +39,8 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
    - 앱은 개발 실행에서만 `tcp://127.0.0.1:5761` (SITL) 포트를 보여 준다(`src/main/serial/tcpTransport.ts`, 배포 exe에서는 꺼짐)
    - `scripts/sitl/probe.mjs` 는 SITL 전용 실험 도구(루프백만). 앱 코드에서 쓰지 않는다
    - 쓰기 방식 결론: `'#'` 진입, `batch start` → 명령 → `save`(batch end 없음), `###ERROR` 검사, 4.5.4+는 `save noreboot` 후 재검증
-1~7. 대기
+1. 이름 변경 — 완료 (Betaflight CLI Editor 2.0.0, appId app.bfclieditor.editor, exe Betaflight-CLI-Editor-Setup/Portable-2.0.0). 앱 동작은 v1과 같음
+2~7. 대기
 
 ## v1 진행 상태 (SPEC 7절) — 완료, v0.1.0 배포
 1. 뼈대 — 완료
