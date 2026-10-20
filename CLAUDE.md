@@ -70,7 +70,8 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
    - 12절 경고: `writeWarning()` (모터·보드 방향·수신기/포트·ARM/BEEPER/FAILSAFE 모드·페일세이프·필터) → 미리보기 표의 주의 칸과 요약
    - 백업으로 되돌리기: `revertEdits(지금, 쓰기 직전)` → 같은 절차(1~9)로 다시. defaults 안 씀. 결과·재검증 화면의 버튼
    - SITL 시나리오 6개(되돌리기 포함) × 4개 버전 통과 — 실패하면 출력이 `%TEMP%\sitl-write-<버전>.log`
-7. 대기
+7. 패키징·배포 — 완료 (2.0.0 exe 이 PC에서 빌드·실행 확인, README 쓰기 주의사항, `docs/release-notes/v2.0.0.md`)
+   - 태그 `v2.0.0`(v2 브랜치) → GitHub Actions 가 빌드해 Release **초안**(본문 = `docs/release-notes/<태그>.md`). 퍼블리시·저장소 이름 변경·실기체 첫 쓰기 테스트는 사용자가 한다
 
 ## v1 진행 상태 (SPEC 7절) — 완료, v0.1.0 배포
 1. 뼈대 — 완료

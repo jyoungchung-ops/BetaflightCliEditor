@@ -46,4 +46,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release/*.exe
+          # 본문 = docs/release-notes/<태그>.md (퍼블리시는 사람이 한다)
+          body_path: docs/release-notes/${{ github.ref_name }}.md
           draft: true
