@@ -2,6 +2,46 @@
 
 import type { RawCli } from './cli/types'
 import type { IpcResult, PortInfo, ReadProgress } from './serial'
+import type { Edit } from './edit/session'
+import type { Conflict, Mismatch } from './edit/writePlan'
+
+export interface WriteBase {
+  craftName: string
+  readAt: string
+  raw: RawCli
+}
+
+export type WriteProgressEvent =
+  | { stage: 'read'; read: ReadProgress }
+  | { stage: 'backup' }
+  | { stage: 'send'; done: number; total: number; command: string }
+  | { stage: 'reconnect' }
+  | { stage: 'verify'; read: ReadProgress }
+
+export interface WriteFailureInfo {
+  code: string
+  message: string
+  /** no = save 전에 멈춤(재부팅하면 원래대로), unknown = save 뒤 확인 못 함 */
+  applied: 'no' | 'unknown'
+  command?: string
+  response?: string
+  conflicts?: Conflict[]
+  blockers?: string[]
+  backup?: { txt: string; json: string }
+  log?: string
+}
+
+export interface WriteResultInfo {
+  status: 'ok' | 'mismatch'
+  afterRaw: RawCli
+  mismatches: Mismatch[]
+  commands: string[]
+  rebooted: boolean
+  backup: { txt: string; json: string }
+  log: string
+}
+
+export type WriteIpcResult<T> = { ok: true; value: T } | { ok: false; failure: WriteFailureInfo }
 
 export const IPC = {
   appInfo: 'app:info',
@@ -16,6 +56,12 @@ export const IPC = {
   openFile: 'file:open',
   readDroppedFile: 'file:read-dropped',
   takeLaunchFile: 'file:take-launch',
+  /** v2 쓰기 절차 (SPEC 11절). 명령 문자열은 렌더러가 보내지 않는다 — 메인이 편집에서 만든다 */
+  writePrepare: 'write:prepare',
+  writeExecute: 'write:execute',
+  writeCancel: 'write:cancel',
+  writeVerify: 'write:verify',
+  writeProgress: 'write:progress',
   /** 메인 → 렌더러: 실행 중에 파일로 다시 실행됨 (두 번째 인스턴스) */
   openRequest: 'file:open-request'
 } as const
@@ -58,4 +104,14 @@ export interface BfViewApi {
   readDroppedFile(file: File): Promise<FileResult<OpenedFile>>
   takeLaunchFile(): Promise<FileResult<OpenedFile> | null>
   onOpenRequest(cb: (r: FileResult<OpenedFile>) => void): () => void
+
+  // ── v2 쓰기 (SPEC 11절) ──
+  /** 2단계: 연결해 현재 설정을 읽는다 (연결은 execute/cancel 까지 열려 있음) */
+  writePrepare(path: string): Promise<WriteIpcResult<RawCli>>
+  /** 3~9단계: 메인이 다시 검사 → 백업 → 전송 → save → 재검증 */
+  writeExecute(req: { base: WriteBase; edits: Edit[]; overwriteConflicts: boolean }): Promise<WriteIpcResult<WriteResultInfo>>
+  writeCancel(): Promise<void>
+  /** [재검증]: 다시 연결해 읽고 대조만 */
+  writeVerify(req: { path: string; base: WriteBase; edits: Edit[] }): Promise<WriteIpcResult<{ afterRaw: RawCli; mismatches: Mismatch[] }>>
+  onWriteProgress(cb: (p: WriteProgressEvent) => void): () => void
 }

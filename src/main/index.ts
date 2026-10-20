@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'path'
 import { IPC, type AppInfo } from '@shared/ipc'
 import { registerSerialIpc, shutdownSerial } from './serial/ipc'
+import { registerWriteIpc, shutdownWrite } from './serial/writeIpc'
 import { fileFromArgv, readOpenableFile, registerFileIpc, setLaunchFile } from './files'
 
 // 앱은 하나만 실행한다. 이미 실행 중이면 파일을 그 창으로 넘긴다
@@ -56,6 +57,7 @@ ipcMain.handle(IPC.appInfo, (): AppInfo => ({
 }))
 
 registerSerialIpc()
+registerWriteIpc()
 registerFileIpc()
 setLaunchFile(fileFromArgv(process.argv))
 
@@ -69,6 +71,7 @@ app.on('second-instance', async (_e, argv) => {
 
 app.on('before-quit', () => {
   void shutdownSerial()
+  void shutdownWrite() // save 없이 닫는다
 })
 
 app.whenReady().then(() => {

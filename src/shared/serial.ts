@@ -7,6 +7,8 @@ export interface PortInfo {
   manufacturer?: string
   vendorId?: string
   productId?: string
+  /** USB 시리얼 번호 — 쓰기 후 재부팅한 기체를 다시 찾을 때 (COM 번호가 바뀔 수 있음) */
+  serialNumber?: string
   /** STM32 VCP(0483) / AT32(2E3C) */
   likelyFc: boolean
 }

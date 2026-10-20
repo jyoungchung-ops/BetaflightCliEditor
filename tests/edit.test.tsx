@@ -142,7 +142,10 @@ describe.each(TAGS)('편집 상태 — SITL %s', (tag) => {
     expect(eff.serial.find((p) => (p.name ?? String(p.id)) === tok)?.functionMask).toBe(64)
     expect(eff.features[feat]).toBe(!base.features[feat])
     expect(eff.rxFail.find((r) => r.channel === 5)).toMatchObject({ mode: 's', value: 1234 })
-    expect(validateEdits(base, s.edits)).toEqual({})
+    // SITL 은 첫 UART 만 MSP — 그 포트를 Serial RX 로만 바꾸면 MSP 포트가 하나도 남지 않는다
+    expect(validateEdits(base, s.edits)).toEqual({ [`serial.${tok}`]: 'MSP가 켜진 포트가 하나도 없게 됩니다' })
+    const keep = setValue(s, base, `serial.${tok}`, `serial ${tok} 65 ${port.mspBaud} ${port.gpsBaud} ${port.telemetryBaud} ${port.blackboxBaud}`)
+    expect(validateEdits(base, keep.edits)).toEqual({})
     expect(countByTab(s.edits)).toMatchObject({ modes: 1, ports: 1, failsafe: 1 })
   })
 

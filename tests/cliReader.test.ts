@@ -172,7 +172,22 @@ describe('FC 쓰기 경로 (소스 검사)', () => {
     const hits = sources.flatMap((s) =>
       [...s.text.matchAll(/\.write\s*\(/g)].map(() => s.path)
     )
-    expect(hits.sort()).toEqual(['main/serial/cliReader.ts', 'main/serial/serialTransport.ts', 'main/serial/tcpTransport.ts'])
+    expect(hits.sort()).toEqual(['main/serial/cliReader.ts', 'main/serial/serialTransport.ts', 'main/serial/tcpTransport.ts', 'main/serial/writeSession.ts'])
+  })
+
+  it('writeSession의 transport.write는 send() 안 한 곳뿐이고 그 앞에서 생성 명령 형식을 검사한다', () => {
+    const src = sources.find((s) => s.path === 'main/serial/writeSession.ts')!.text
+    expect(src.match(/transport\.write\(/g)).toHaveLength(1)
+    const send = /private async send\(cmd: string\)[^]*?\n {2}\}/.exec(src)![0]
+    expect(send).toMatch(/isGeneratedCommand\(cmd\)[^]*transport\.write/)
+  })
+
+  it('WriteSession은 쓰기 절차(writeFlow)에서만 만든다', () => {
+    const users = sources.filter((s) => /new WriteSession\(/.test(s.text)).map((s) => s.path)
+    expect(users).toEqual(['main/serial/writeFlow.ts'])
+    // 렌더러·preload·공용 코드는 쓰기 세션을 import 하지 않는다
+    const importers = sources.filter((s) => /from '\.\/writeSession'|serial\/writeSession'/.test(s.text)).map((s) => s.path)
+    expect(importers.every((p) => p.startsWith('main/serial/'))).toBe(true)
   })
 
   it('cliReader의 transport.write는 send() 안 한 곳뿐이고 그 앞에서 화이트리스트를 검사한다', () => {

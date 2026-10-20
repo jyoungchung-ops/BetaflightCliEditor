@@ -20,10 +20,37 @@ export async function listPorts(): Promise<PortInfo[]> {
         manufacturer: p.manufacturer,
         vendorId: p.vendorId,
         productId: p.productId,
+        serialNumber: p.serialNumber,
         likelyFc
       }
     })
     .sort((a, b) => Number(b.likelyFc) - Number(a.likelyFc) || comparePath(a.path, b.path))
+}
+
+/** USB 정보 — 쓰기 후 재부팅한 기체를 다시 찾는 데 쓴다 */
+export interface PortIdentity {
+  vendorId?: string
+  productId?: string
+  serialNumber?: string
+}
+
+export async function portIdentity(path: string): Promise<PortIdentity | null> {
+  const p = (await SerialPort.list()).find((x) => x.path === path)
+  return p ? { vendorId: p.vendorId, productId: p.productId, serialNumber: p.serialNumber } : null
+}
+
+/**
+ * 같은 기체의 포트 경로 (COM 번호가 바뀌어도 VID/PID + 시리얼 번호로 찾는다).
+ * 시리얼 번호가 없고 후보가 여럿이면 원래 경로만 — 다른 기체에 붙지 않게
+ */
+export async function findSamePort(path: string, id: PortIdentity | null): Promise<string | null> {
+  const ports = await SerialPort.list()
+  const eq = (a?: string, b?: string) => (a ?? '').toLowerCase() === (b ?? '').toLowerCase()
+  const same = id
+    ? ports.filter((p) => eq(p.vendorId, id.vendorId) && eq(p.productId, id.productId) && (!id.serialNumber || p.serialNumber === id.serialNumber))
+    : ports.filter((p) => p.path === path)
+  const pick = same.length === 1 ? same[0] : same.find((p) => p.path === path)
+  return pick?.path ?? null
 }
 
 function comparePath(a: string, b: string): number {

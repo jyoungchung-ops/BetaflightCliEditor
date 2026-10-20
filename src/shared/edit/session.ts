@@ -220,6 +220,13 @@ export function validateEdits(base: CraftSnapshot, edits: Edits): Record<string,
     const err = validateEdit(base, e)
     if (err) out[e.key] = err
   }
+  // 여러 줄에 걸친 검사: MSP 가 켜진 포트가 하나도 없게 되면 앱·Configurator 로 다시 연결할 수 없다
+  // (SITL 실측: 펌웨어도 save 때 첫 포트에 MSP 를 되살린다 — 의도와 다른 값이 저장됨)
+  const serialKeys = Object.keys(edits).filter((k) => k.startsWith('serial.') && !out[k])
+  if (serialKeys.length && base.serial.some((p) => p.functionMask & 1)) {
+    const eff = effective(base, Object.fromEntries(serialKeys.map((k) => [k, edits[k]])))
+    if (!eff.serial.some((p) => p.functionMask & 1)) for (const k of serialKeys) out[k] = 'MSP가 켜진 포트가 하나도 없게 됩니다'
+  }
   return out
 }
 

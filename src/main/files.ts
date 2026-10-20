@@ -28,7 +28,7 @@ async function saveSettings(s: Settings) {
 }
 
 /** 처음엔 문서\FPV 기체 를 제안한다 (없으면 만든다) */
-async function saveDir(): Promise<string> {
+export async function saveDir(): Promise<string> {
   const s = await loadSettings()
   if (s.lastSaveDir) return s.lastSaveDir
   const dir = join(app.getPath('documents'), 'FPV 기체')

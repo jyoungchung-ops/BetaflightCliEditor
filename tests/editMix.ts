@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { buildSnapshot } from '../src/shared/cli/parser'
 import type { CraftSnapshot } from '../src/shared/cli/types'
+import { validateValue } from '../src/shared/cli/schema'
 import { emptyEditState, setValue, type EditState } from '../src/shared/edit/session'
 
 export const FIX = join(__dirname, '..', 'fixtures')
@@ -31,6 +32,12 @@ function otherValue(base: CraftSnapshot, name: string, cur: string): string | un
   return undefined
 }
 
+/**
+ * 펌웨어가 save 때 서로 맞춰 고치는 설정 (validateAndFixConfig 등) — 섞어 쓰면 재검증에서 다른 값이 나온다.
+ * SITL 실측: gyro_notch*_hz 를 cutoff 보다 낮게 주면 0(끔), mag_align_* (지자기계 없음)·vbat_sag_compensation 은 0 으로 저장된다.
+ */
+const CROSS_CHECKED = /notch|_cutoff$|^mag_|vbat_sag/
+
 export function mixedSteps(base: CraftSnapshot): [string, string][] {
   // 여러 종류를 섞은 편집: master · PID(활성 아닌 프로필 포함) · 레이트 · 배터리 · 줄
   const steps: [string, string][] = []
@@ -39,9 +46,10 @@ export function mixedSteps(base: CraftSnapshot): [string, string][] {
     if (!src) return
     let got = 0
     for (const [k, v] of Object.entries(src)) {
-      if (got >= count || !base.schema?.[k]) continue
+      if (got >= count || !base.schema?.[k] || CROSS_CHECKED.test(k)) continue
       const nv = otherValue(base, k, v)
-      if (nv === undefined) continue
+      // 펌웨어 값이 자기 범위 밖인 설정도 있다 (SITL 2025.12 mag_i2c_device) — 검사를 통과하는 값만
+      if (nv === undefined || validateValue(base.schema[k], nv) !== null) continue
       steps.push([scope === 'master' ? `master.${k}` : `${scope}.${n}.${k}`, nv])
       got++
     }
@@ -52,7 +60,8 @@ export function mixedSteps(base: CraftSnapshot): [string, string][] {
   pick('rate', 0, 8)
   pick('rate', 1, 3)
   pick('battery', 1, 3)
-  const port = base.serial.find((p) => !(p.name ? p.name === 'VCP' : p.id === 20))!
+  // 첫 포트는 SITL 이 연결에 쓰는 UART1 — 두 번째 포트에 Serial RX 를 더한다 (MSP 는 건드리지 않음)
+  const port = base.serial.filter((p) => !(p.name ? p.name === 'VCP' : p.id === 20))[1]!
   const tok = port.name ?? String(port.id)
   // MOTOR_STOP 은 모든 SITL 빌드에 있다 (2025.12+ 는 빌드에 없는 기능에 'Unavailable X' 를 답하고 바꾸지 않음)
   const feat = 'MOTOR_STOP' in base.features ? 'MOTOR_STOP' : Object.keys(base.features)[0]
@@ -60,7 +69,7 @@ export function mixedSteps(base: CraftSnapshot): [string, string][] {
     ['master.craft_name', 'ROUND TRIP'],
     ['aux.3', 'aux 3 0 1 1700 2100 0 0'],
     ['aux.1', 'aux 1 1 0 1300 1700 0 0'],
-    [`serial.${tok}`, `serial ${tok} 64 ${port.mspBaud} ${port.gpsBaud} ${port.telemetryBaud} ${port.blackboxBaud}`],
+    [`serial.${tok}`, `serial ${tok} ${port.functionMask | 64} ${port.mspBaud} ${port.gpsBaud} ${port.telemetryBaud} ${port.blackboxBaud}`],
     [`feature.${feat}`, `feature ${base.features[feat] ? '-' : ''}${feat}`],
     ['map', 'map TAER1234'],
     ['rxfail.4', 'rxfail 4 s 1800']

@@ -12,12 +12,15 @@ export interface FakeFcOptions {
   disconnectDuring?: { command: string; afterChunks: number }
   /** 이 명령 응답을 n번째 청크까지만 보내고 멈춤 */
   stallDuring?: { command: string; afterChunks: number }
+  /** 쓰기 명령 응답 (writeSession 테스트). 문자열 = 응답 본문, close = 응답 뒤 연결 끊김(재부팅), silent = 응답 없음 */
+  handler?: (cmd: string) => string | { text: string; close: true } | { silent: true } | undefined
 }
 
 export class FakeFc implements CliTransport {
   readonly writes: string[] = []
-  private dataCb: (s: string) => void = () => {}
-  private closeCb: (d: boolean) => void = () => {}
+  // 실제 포트처럼 여러 구독자 (읽기 CliReader + 쓰기 WriteSession 이 같은 연결을 쓴다)
+  private dataCbs: ((s: string) => void)[] = []
+  private closeCbs: ((d: boolean) => void)[] = []
   private inCli = false
   private line = ''
   private hashesIgnored = 0
@@ -26,10 +29,16 @@ export class FakeFc implements CliTransport {
   constructor(private readonly opts: FakeFcOptions) {}
 
   onData(cb: (s: string) => void) {
-    this.dataCb = cb
+    this.dataCbs.push(cb)
   }
   onClose(cb: (d: boolean) => void) {
-    this.closeCb = cb
+    this.closeCbs.push(cb)
+  }
+  private dataCb(s: string) {
+    for (const cb of this.dataCbs) cb(s)
+  }
+  private closeCb(d: boolean) {
+    for (const cb of this.closeCbs) cb(d)
   }
   async close() {
     this.closed = true
@@ -54,6 +63,20 @@ export class FakeFc implements CliTransport {
     if (ch === '\n') {
       const cmd = this.line.trim()
       this.line = ''
+      const h = this.opts.handler?.(cmd)
+      if (h !== undefined) {
+        if (typeof h === 'string') this.stream(`\r\n${h}\r\n\r\n# `, cmd)
+        else if ('silent' in h) return
+        else {
+          this.stream(`\r\n${h.text}\r\n`, cmd)
+          setTimeout(() => {
+            this.closed = true
+            this.inCli = false
+            for (const cb of this.closeCbs) cb(true)
+          }, 20)
+        }
+        return
+      }
       let body = this.opts.responses[cmd]
       if (body === undefined) {
         const get = /^get (\S+)$/.exec(cmd)
