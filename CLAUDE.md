@@ -62,7 +62,7 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
    - 송신: `src/main/serial/writeSession.ts` (유일한 쓰기 송신, `isGeneratedCommand` 검사, `###ERROR`·`Unavailable`·save 거부 검사)
    - 절차: `src/main/serial/writeFlow.ts` (Electron 무관 — SITL 테스트가 그대로 씀), IPC `writeIpc.ts`, 검사 `src/shared/edit/writePlan.ts`
    - 화면: `components/WriteDialog.tsx` (안전 확인 → 읽기 → 충돌 질문 → 미리보기·이름 입력 → 결과·재검증)
-   - 백업 `<저장폴더>ackups\<이름>_<날짜시각>_before-write.txt/.bfview.json`, 로그 `<저장폴더>\logs\write_<날짜>.log`
+   - 백업 `<저장폴더>\backups\<이름>_<날짜시각>_before-write.txt/.bfview.json`, 로그 `<저장폴더>\logs\write_<날짜>.log`
    - 검사: `tests/writeSession.test.ts`(가짜 FC, 차단 명령), `tests/sitl.write.test.ts`(SITL 4개 버전, 오류 주입 — `scripts/sitl/run-write.ps1`)
    - SITL 은 감시 루프로 띄움(`~/sitl.sh start|powercycle|stop`) — 저장소 `scripts/sitl/sitl.sh` 를 WSL `~/sitl.sh` 로 복사해 씀
 6~7. 대기
