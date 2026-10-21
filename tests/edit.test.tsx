@@ -226,3 +226,28 @@ describe('OSD 편집 화면 (샘플 덤프 — SITL 은 OSD 없음)', () => {
     expect(html).toContain('osd-preview editable')
   })
 })
+
+describe('레이트 편집은 보기와 같은 단위 (사용자 보고: 편집 중 레이트 값이 이상하게 보임)', () => {
+  it.each(TAGS)('SITL %s ACTUAL: 편집 입력이 70°/s · 670°/s · 0.00 (CLI 7 / 67 / 0 이 아니라)', (tag) => {
+    const base = load(tag)
+    const n = base.meta.activeRateProfile
+    expect(base.rateProfiles[n].rates_type).toBe('ACTUAL')
+    const ctx: EditCtx = { editing: true, base, edits: {}, errors: {}, schema: base.schema, setValue: () => {}, revert: () => {} }
+    const html = renderToStaticMarkup(
+      <EditProvider value={ctx}>
+        <SnapshotProvider snap={base}>
+          <PidTab initialSub="rates" />
+        </SnapshotProvider>
+      </EditProvider>
+    )
+    const val = (name: string) => new RegExp(`value="([^"]*)" aria-label="${name}"|aria-label="${name}"[^>]*value="([^"]*)"`).exec(html)
+    const v = (name: string) => {
+      const m = val(name)
+      return m ? (m[1] ?? m[2]) : undefined
+    }
+    expect(v('roll_rc_rate')).toBe(String(Number(base.rateProfiles[n].roll_rc_rate) * 10))
+    expect(v('roll_srate')).toBe(String(Number(base.rateProfiles[n].roll_srate) * 10))
+    expect(v('roll_expo')).toBe((Number(base.rateProfiles[n].roll_expo) / 100).toFixed(2))
+    expect(html).toContain('°/s')
+  })
+})

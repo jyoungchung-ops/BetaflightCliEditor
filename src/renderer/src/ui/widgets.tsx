@@ -1,7 +1,7 @@
 // 탭 화면 공용 부품. 보기 모드에서는 읽기 전용이고, 변경된 값(diff all에 있는 키)은 노란 점으로 표시한다.
 // 편집 모드(v2)에서는 형식(schema)이 있는 값이 입력 컨트롤로 바뀌고, 편집한 값은 파란 테두리로 표시한다.
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { useSnap } from './snapshot'
 import { useEdit } from './editContext'
@@ -343,6 +343,79 @@ export function CellValue({ fullKey, name, raw, display, changed }: { fullKey: s
       title={mark.title ?? name}
     >
       {raw === undefined ? '—' : (display ?? raw)}
+    </span>
+  )
+}
+
+/**
+ * 표시 단위로 고치는 칸 (예: Actual 레이트 rc_rate 7 → 70°/s). 기체에는 CLI 정수 값(표시 ÷ scale)을 쓴다.
+ * 입력 중에는 그대로 두고, 정수로 딱 떨어지거나 칸을 벗어날 때 반영한다.
+ */
+export function ScaledCell({
+  fullKey,
+  name,
+  raw,
+  scale,
+  digits = 0,
+  unit,
+  changed
+}: {
+  fullKey: string
+  name: string
+  raw: string | undefined
+  scale: number
+  digits?: number
+  unit?: string
+  changed?: boolean
+}) {
+  const { editing, schema, setValue } = useEdit()
+  const mark = useEditMark(fullKey)
+  const [draft, setDraft] = useState<string | null>(null)
+  const s = schema?.[name]
+  const shown = raw === undefined ? '' : (Number(raw) * scale).toFixed(digits)
+  if (raw === undefined || !editing || !s || s.kind !== 'number') {
+    return (
+      <span className={'value-box' + (changed ? ' cell-changed' : '') + (mark.edited ? ' cell-edited' : '')} title={mark.title ?? name}>
+        {raw === undefined ? '—' : `${shown}${unit ?? ''}`}
+      </span>
+    )
+  }
+  const commit = (text: string) => {
+    const v = Number(text)
+    if (text.trim() === '' || Number.isNaN(v)) return
+    setValue(fullKey, String(Math.round(v / scale)))
+  }
+  return (
+    <span className={'cell' + (mark.edited ? ' edited' : '') + (mark.error ? ' invalid' : '')} title={mark.error ?? mark.title ?? `${name} = ${raw}`}>
+      <input
+        className={'edit-input' + (mark.error ? ' invalid' : '')}
+        type="number"
+        step={scale}
+        min={s.min !== undefined ? s.min * scale : undefined}
+        max={s.max !== undefined ? s.max * scale : undefined}
+        value={draft ?? shown}
+        aria-label={name}
+        onChange={(e) => {
+          const t = e.target.value
+          // 화살표·정확한 값이면 바로, 아니면 입력이 끝날 때
+          if (Number.isInteger(Math.round((Number(t) / scale) * 1e6) / 1e6)) {
+            setDraft(null)
+            commit(t)
+          } else setDraft(t)
+        }}
+        onBlur={() => {
+          if (draft !== null) commit(draft)
+          setDraft(null)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && draft !== null) {
+            commit(draft)
+            setDraft(null)
+          }
+        }}
+      />
+      {unit && <span className="unit">{unit}</span>}
+      {mark.revertButton}
     </span>
   )
 }

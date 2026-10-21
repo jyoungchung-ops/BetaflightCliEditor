@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { actualRateAt, axisRates, maxRate, rateAt, supportsRateType, toActual, withRateDefaults } from '@shared/mapping/rates'
 import { PID_PROFILE_SHOWN, RATE_PROFILE_SHOWN } from '@shared/mapping/tabKeys'
-import { CellValue, Columns, Field, KeyHint, MasterField, Panel, TabFrame, num } from '../ui/widgets'
+import { CellValue, Columns, ScaledCell, Field, KeyHint, MasterField, Panel, TabFrame, num } from '../ui/widgets'
 import { useEdit } from '../ui/editContext'
 import { useSnap } from '../ui/snapshot'
 
@@ -466,6 +466,44 @@ function ActualTable({ type, profile, n, filled }: { type: string; profile: Reco
   )
 }
 
+/** 편집 모드 · ACTUAL 방식: 보기와 같은 단위(°/s, 엑스포)로 고친다. 기체에는 CLI 값(÷10, ×100)을 쓴다 */
+function ActualEditTable({ profile, n }: { profile: Record<string, string>; n: number }) {
+  const { changed } = useSnap()
+  const ch = (k: string) => changed.has(`rate.${n}.${k}`)
+  return (
+    <table className="grid-table">
+      <thead>
+        <tr>
+          <th className="left">축</th>
+          <th>중앙 감도</th>
+          <th>최대 레이트</th>
+          <th>엑스포</th>
+          <th>제한</th>
+        </tr>
+      </thead>
+      <tbody>
+        {AXES.map(([axis, label]) => (
+          <tr key={axis}>
+            <th scope="row">{label}</th>
+            <td>
+              <ScaledCell fullKey={`rate.${n}.${axis}_rc_rate`} name={`${axis}_rc_rate`} raw={profile[`${axis}_rc_rate`]} scale={10} unit="°/s" changed={ch(`${axis}_rc_rate`)} />
+            </td>
+            <td>
+              <ScaledCell fullKey={`rate.${n}.${axis}_srate`} name={`${axis}_srate`} raw={profile[`${axis}_srate`]} scale={10} unit="°/s" changed={ch(`${axis}_srate`)} />
+            </td>
+            <td>
+              <ScaledCell fullKey={`rate.${n}.${axis}_expo`} name={`${axis}_expo`} raw={profile[`${axis}_expo`]} scale={0.01} digits={2} changed={ch(`${axis}_expo`)} />
+            </td>
+            <td>
+              <CellValue fullKey={`rate.${n}.${axis}_rate_limit`} name={`${axis}_rate_limit`} raw={profile[`${axis}_rate_limit`]} changed={ch(`${axis}_rate_limit`)} />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
 function Rates({ n }: { n: number }) {
   const { snap, changed } = useSnap()
   const raw = snap.rateProfiles[n] ?? {}
@@ -476,8 +514,9 @@ function Rates({ n }: { n: number }) {
   const cols = rateColumns(type)
   const [view, setView] = useState<RateView>('actual')
   const { editing } = useEdit()
-  // 편집 중에는 CLI 값 그대로 편집한다 (환산값이 아니라 기체에 쓰는 값)
+  // 보기: Actual 환산(또는 원래 값). 편집: ACTUAL 은 같은 단위로, 다른 방식은 원래 값을 고치고 환산표를 함께 보여 준다
   const showActual = !editing && (view === 'actual' || type === 'ACTUAL')
+  const editActual = editing && type === 'ACTUAL'
   const R = (props: Omit<Parameters<typeof ProfileField>[0], 'kind' | 'n'>) => <ProfileField kind="rate" n={n} {...props} />
 
   return (
@@ -506,12 +545,15 @@ function Rates({ n }: { n: number }) {
           )}
           {editing && (
             <p className="muted small">
-              편집 중에는 CLI 값을 그대로 고칩니다
-              {type === 'ACTUAL' ? ' (rc_rate 7 = 중앙 감도 70°/s, srate 67 = 최대 670°/s, expo 0~100)' : ''}. 최대 속도와 그래프는 바로 반영됩니다.
+              {editActual
+                ? '보기와 같은 단위로 고칩니다. 중앙 감도·최대 레이트는 10°/s 단위, 엑스포는 0.01 단위로 기체에 저장됩니다.'
+                : `${type} 방식의 원래 값(CLI)을 고칩니다. 아래 Actual 환산과 그래프가 바로 바뀝니다.`}
             </p>
           )}
           {showActual ? (
             <ActualTable type={type} profile={profile} n={n} filled={filled} />
+          ) : editActual ? (
+            <ActualEditTable profile={profile} n={n} />
           ) : (
           <table className="grid-table">
             <thead>
@@ -560,6 +602,12 @@ function Rates({ n }: { n: number }) {
               })}
             </tbody>
           </table>
+          )}
+          {editing && !editActual && supportsRateType(type) && (
+            <>
+              <p className="subhead">Actual 환산 (참고)</p>
+              <ActualTable type={type} profile={profile} n={n} filled={filled} />
+            </>
           )}
           {!supportsRateType(type) && <p className="muted small">{type} 방식은 최대 속도·그래프를 계산하지 않습니다.</p>}
         </Panel>
