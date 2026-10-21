@@ -64,6 +64,8 @@ export interface WriteOutcome {
   saved: boolean
   /** 재부팅했는가 (save) — 그렇다면 다시 연결해야 한다 */
   rebooted: boolean
+  /** save 응답("saving"/"Rebooting")을 받았는가. false 면 응답 전에 USB 가 끊긴 것 — 재검증으로 확인해야 한다 */
+  confirmed: boolean
   responses: { command: string; response: string }[]
 }
 
@@ -164,13 +166,16 @@ export class WriteSession {
     const err = responseError(response)
     if (err) throw new WriteError('SAVE_FAILED', save, err, true)
     if (save === 'save noreboot') {
-      if (r === 'prompt' && /saving/i.test(response)) return { saved: true, rebooted: false, responses }
+      if (r === 'prompt' && /saving/i.test(response)) return { saved: true, rebooted: false, confirmed: true, responses }
       if (r === 'closed') throw new WriteError('SAVE_UNKNOWN', save, response, true)
       if (r === 'timeout') throw new WriteError('SAVE_UNKNOWN', save, response, true)
       // 프롬프트는 왔는데 saving 이 없다 = 저장 안 됨
       throw new WriteError('SAVE_FAILED', save, response || '(응답 없음)', true)
     }
-    if (r === 'until' || (r === 'closed' && /saving/i.test(response))) return { saved: true, rebooted: true, responses }
+    if (r === 'until' || (r === 'closed' && /saving/i.test(response))) return { saved: true, rebooted: true, confirmed: true, responses }
+    // 실기체(4.5.3): save 에코 직후 재부팅으로 USB 가 끊겨 "saving / Rebooting" 이 PC 에 닿지 못하는 일이 있다.
+    // 끊긴 것 자체가 재부팅 신호이므로, 다시 연결해 재검증한다 (적용됐는지는 재검증이 판단)
+    if (r === 'closed') return { saved: true, rebooted: true, confirmed: false, responses }
     throw new WriteError('SAVE_UNKNOWN', save, response, true)
   }
 

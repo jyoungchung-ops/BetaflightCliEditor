@@ -15,6 +15,9 @@ function Start-Sitl($tag) {
   return $false
 }
 
+# Keep one WSL session attached for the whole run: with no session WSL may stop the distro/VM and kill SITL mid-test.
+$keep = Start-Process -FilePath wsl.exe -ArgumentList '-d', 'Ubuntu-24.04', '--', 'sleep', 'infinity' -WindowStyle Hidden -PassThru
+
 foreach ($tag in $Tags) {
   Write-Output "===================== $tag"
   if (-not (Start-Sitl $tag)) { Write-Output "SITL $tag not reachable"; continue }
@@ -23,4 +26,5 @@ foreach ($tag in $Tags) {
   if ($r -match 'Tests\s+1 passed') { Write-Output "paste: PASS" } else { Write-Output "paste: FAIL"; ($r -split "`n" | Select-String -Pattern 'Error|expected|FAIL|ERROR' | Select-Object -First 30) }
 }
 & wsl.exe -d Ubuntu-24.04 -- bash -c "~/sitl.sh stop" 2>&1 | Out-Null
+if ($keep -and -not $keep.HasExited) { Stop-Process -Id $keep.Id -Force -ErrorAction SilentlyContinue }
 Remove-Item Env:SITL_TAG -ErrorAction SilentlyContinue

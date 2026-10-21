@@ -84,8 +84,14 @@ describe('WriteSession', () => {
     await expect(new WriteSession(fc, FAST).run(CMDS)).rejects.toMatchObject({ code: 'SAVE_FAILED' })
   })
 
-  it('save 뒤 응답 없이 끊기면 SAVE_UNKNOWN (적용 여부 모름)', async () => {
+  it('save 에코 직후 응답 없이 끊기면 재부팅으로 본다 — 확인 안 됨, 재검증 필요 (실기체 4.5.3 로그)', async () => {
     const fc = await fcInCli((c) => (c === 'save' ? { text: '', close: true } : firmware()(c)))
+    const out = await new WriteSession(fc, FAST).run([...CMDS.slice(0, -1), 'save'])
+    expect(out).toMatchObject({ saved: true, rebooted: true, confirmed: false })
+  })
+
+  it('save 뒤 응답도 없고 끊기지도 않으면 SAVE_UNKNOWN', async () => {
+    const fc = await fcInCli((c) => (c === 'save' ? { silent: true } : firmware()(c)))
     await expect(new WriteSession(fc, FAST).run([...CMDS.slice(0, -1), 'save'])).rejects.toMatchObject({ code: 'SAVE_UNKNOWN', saveSent: true })
   })
 })
@@ -151,5 +157,19 @@ describe('응답 오류 판정', () => {
     ['# saving', false]
   ])('%s → 오류 %s', (text, isErr) => {
     expect(responseError(text) !== null).toBe(isErr)
+  })
+})
+
+describe('읽기 깨짐 판정 (rawProblem)', () => {
+  it('SITL 실측 원문은 온전, get 이 잘리면 깨짐', async () => {
+    const { rawProblem } = await import('../src/main/serial/writeFlow')
+    const { loadSitl } = await import('./editMix')
+    for (const t of ['4.5.3', '2026.6.2']) {
+      const raw = loadSitl(t).raw
+      expect(rawProblem(raw)).toBeNull()
+      const lines = raw.get!.split('\n')
+      expect(rawProblem({ ...raw, get: lines.slice(0, Math.floor(lines.length / 2)).join('\n') })).toMatch(/get 에 빠진 설정/)
+      expect(rawProblem({ ...raw, dumpAll: raw.dumpAll.replace(/\nsave\s*$/, '\n') })).toMatch(/dump all/)
+    }
   })
 })

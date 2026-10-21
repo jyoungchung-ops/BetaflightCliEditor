@@ -10,6 +10,7 @@
 import { mkdir, writeFile, appendFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { buildSnapshot, parseCli } from '@shared/cli/parser'
+import { parseGetSchema } from '@shared/cli/schema'
 import type { CraftSnapshot, RawCli } from '@shared/cli/types'
 import { buildCommands } from '@shared/edit/commands'
 import { editsFromJson, type Edits } from '@shared/edit/session'
@@ -118,8 +119,20 @@ export function rawProblem(raw: RawCli): string | null {
   if (!raw.version.trim()) return 'version 이 비어 있음'
   if (!ends(raw.diffAll)) return 'diff all 이 save 로 끝나지 않음'
   if (!ends(raw.dumpAll)) return 'dump all 이 save 로 끝나지 않음'
-  const bad = [...parseCli(raw.dumpAll).unknown, ...parseCli(raw.diffAll).unknown]
-  return bad.length ? `해석 못 한 줄: ${bad.slice(0, 3).join(' | ')}` : null
+  const dump = parseCli(raw.dumpAll)
+  const bad = [...dump.unknown, ...parseCli(raw.diffAll).unknown]
+  if (bad.length) return `해석 못 한 줄: ${bad.slice(0, 3).join(' | ')}`
+  // get 은 dump 의 모든 설정을 빠짐없이 출력한다 (SITL 4개 버전 실측: 개수까지 같음). 빠졌으면 출력이 깨진 것
+  if (raw.get !== undefined) {
+    const schema = parseGetSchema(raw.get)
+    const names = [
+      ...Object.keys(dump.master),
+      ...[...dump.pidProfiles, ...dump.rateProfiles, ...dump.batteryProfiles].flatMap((x) => Object.keys(x ?? {}))
+    ]
+    const missing = names.filter((n) => !schema[n])
+    if (missing.length) return `get 에 빠진 설정 ${missing.length}개: ${missing.slice(0, 3).join(', ')}`
+  }
+  return null
 }
 export const rawLooksComplete = (raw: RawCli) => rawProblem(raw) === null
 
@@ -270,7 +283,10 @@ export class WriteFlow {
     try {
       const out = await session.run(commands)
       rebooted = out.rebooted
-      await this.log('info', rebooted ? 'save 완료 — 재부팅' : 'save noreboot 완료')
+      await this.log(
+        'info',
+        !out.confirmed ? 'save 응답 전에 연결 끊김 — 재부팅으로 보고 다시 연결해 재검증' : rebooted ? 'save 완료 — 재부팅' : 'save noreboot 완료'
+      )
     } catch (e) {
       await this.cancel()
       if (e instanceof WriteError) {
@@ -345,7 +361,8 @@ export class WriteFlow {
       const t = await this.deps.reopen(this.path).catch((e: Error) => ((lastErr = e.message), null))
       if (t) {
         try {
-          await this.newReader(t).enterCli()
+          // 재부팅 중에 너무 일찍 붙은 연결은 끝내 답하지 않는다 (SITL 4.5.3 실측) — 한 번만 시도하고 닫은 뒤 새로 연다
+          await new CliReader(t, { enterAttempts: 1 }).enterCli()
           await this.log('info', '다시 연결함')
           return t
         } catch (e) {

@@ -18,11 +18,20 @@ import { apply, loadSitl, mixedSteps } from './editMix'
 
 const TAG = process.env.SITL_TAG
 const TARGET = 'tcp://127.0.0.1:5761'
-const dir = mkdtempSync(join(tmpdir(), 'bf-write-'))
-afterAll(() => rmSync(dir, { recursive: true, force: true }))
+// SITL_LOGDIR 를 주면 백업·쓰기 로그를 남긴다 (실패 원인 보기)
+const dir = process.env.SITL_LOGDIR ?? mkdtempSync(join(tmpdir(), 'bf-write-'))
+afterAll(() => !process.env.SITL_LOGDIR && rmSync(dir, { recursive: true, force: true }))
 
-const wsl = (cmd: string) =>
+const wslOnce = (cmd: string) =>
   execFileSync('wsl.exe', ['-d', 'Ubuntu-24.04', '--', 'bash', '-c', cmd], { encoding: 'utf8' }).replace(/\0/g, '').trim()
+/** WSL 호출은 가끔 그냥 실패한다 — 한 번 더 */
+const wsl = (cmd: string) => {
+  try {
+    return wslOnce(cmd)
+  } catch {
+    return wslOnce(cmd)
+  }
+}
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 /** WSL 안에서 열려도 Windows 쪽 포워딩은 조금 늦다 — 될 때까지 */
@@ -36,16 +45,33 @@ async function openRetry(): Promise<CliTransport> {
     }
   }
 }
+/**
+ * SITL 이 CLI 에 실제로 답할 때까지 (TCP 가 열려도 부팅 중이면 몇 초 동안 답하지 않는다).
+ * 확인하느라 CLI 에 들어가므로 기체는 CLI 모드로 남는다 — 앱은 그 상태에서도 들어간다(빈 줄 처리).
+ */
+async function waitCli() {
+  const until = Date.now() + 30_000
+  for (;;) {
+    const t = await openRetry()
+    try {
+      await new CliReader(t, { enterAttempts: 1, enterTimeoutMs: 1500 }).enterCli()
+      await t.close()
+      await sleep(200)
+      return
+    } catch (e) {
+      await t.close()
+      if (Date.now() > until) throw e
+    }
+  }
+}
 async function freshSitl() {
   wsl(`~/sitl.sh start ${TAG}`)
-  ;(await openRetry()).close()
-  await sleep(300)
+  await waitCli()
 }
 /** USB 뽑았다 꽂기 = SITL 프로세스만 다시 (같은 eeprom) — 저장 안 한 값은 사라진다 */
 async function powercycle() {
   wsl('~/sitl.sh powercycle')
-  ;(await openRetry()).close()
-  await sleep(300)
+  await waitCli()
 }
 
 /** 앱 리더로 지금 기체를 읽는다 */
@@ -59,14 +85,19 @@ async function readNow(): Promise<CraftSnapshot> {
 }
 
 /** 오류 주입: 쓴 바이트를 기록하고, 필요하면 바꾸거나 끊는다 (테스트 전용 포장) */
-function wrap(t: CliTransport, opt: { rewrite?: (s: string) => string; afterWrite?: (s: string) => void; log: string[] }): CliTransport {
+function wrap(
+  t: CliTransport,
+  opt: { rewrite?: (s: string) => string; afterWrite?: (s: string) => void; log: string[]; muteAfter?: (s: string) => boolean }
+): CliTransport {
+  let muted = false // 이 뒤로 받은 데이터를 버린다 (USB 가 끊기며 응답이 사라진 상황)
   return {
     ...t,
-    onData: (cb) => t.onData(cb),
+    onData: (cb) => t.onData((d) => !muted && cb(d)),
     onClose: (cb) => t.onClose(cb),
     close: () => t.close(),
     async write(d: string) {
       opt.log.push(d)
+      if (opt.muteAfter?.(d)) muted = true
       await t.write(opt.rewrite ? opt.rewrite(d) : d)
       opt.afterWrite?.(d)
     }
@@ -112,6 +143,27 @@ describe.runIf(Boolean(TAG))(`SITL ${TAG}: 기체에 쓰기 (SPEC 11절)`, () =>
     await powercycle()
     const after = await readNow()
     expect(editedKeys.filter((k) => valueOf(after, k) !== edits[k].after)).toEqual([])
+  }, 120_000)
+
+  it('읽기만 하고 USB 를 다시 꽂지 않은 기체에도 쓴다 (CLI 모드에 남은 상태, 실기체 보고)', async () => {
+    await freshSitl()
+    await readNow() // 앱으로 읽기만 하고 끊음 → 기체는 CLI 모드에 남는다
+    const log: string[] = []
+    const flow = new WriteFlow(deps({ log }))
+    await flow.prepare(TARGET)
+    expect(log.slice(0, 2)).toEqual(['#', '\n'])
+    const r = await flow.execute({ base: baseOf(base), edits: editList(edits), overwriteConflicts: false })
+    expect(r.status).toBe('ok')
+  }, 120_000)
+
+  it.runIf(TAG === '4.5.3')('save 응답이 USB 끊김으로 사라져도 재부팅으로 보고 다시 연결해 재검증 (실기체 4.5.3 로그)', async () => {
+    await freshSitl()
+    const log: string[] = []
+    const flow = new WriteFlow(deps({ log, open: async () => wrap(await openRetry(), { log, muteAfter: (s) => s === 'save\n' }) }))
+    await flow.prepare(TARGET)
+    const r = await flow.execute({ base: baseOf(base), edits: editList(edits), overwriteConflicts: false })
+    expect(r).toMatchObject({ status: 'ok', rebooted: true })
+    expect(readFileSync(r.log, 'utf8')).toMatch(/save 응답 전에 연결 끊김/)
   }, 120_000)
 
   it('백업으로 되돌리기: 쓴 뒤 차이만 같은 절차로 되돌리면 원래 설정이 된다 (defaults 안 씀)', async () => {
@@ -181,7 +233,8 @@ describe.runIf(Boolean(TAG))(`SITL ${TAG}: 기체에 쓰기 (SPEC 11절)`, () =>
     const err = await flow.execute({ base: other, edits: editList(edits), overwriteConflicts: false }).catch((e) => e)
     expect(err.failure).toMatchObject({ code: 'BLOCKED', applied: 'no' })
     expect(err.failure.message).toMatch(/펌웨어\(버전·타깃·빌드\)가 다릅니다/)
-    expect(log.map((w) => w.trim())).toEqual(['#', 'version', 'status', 'diff all', 'dump all', 'get'])
+    // 읽기 명령만 (깨진 읽기는 다시 읽으므로 횟수는 고정하지 않는다)
+    expect(log.map((w) => w.trim()).filter((w) => !['#', '', 'version', 'status', 'diff all', 'dump all', 'get'].includes(w))).toEqual([])
   }, 120_000)
 
   it('원본을 읽은 뒤 기체 값이 바뀌었으면 충돌 → 묻기, "덮기"를 고르면 쓴다', async () => {

@@ -14,6 +14,8 @@ export interface CliReaderOptions {
   /** 프롬프트를 본 뒤 추가 데이터가 없어야 하는 시간 — 주석 줄 "# ..."이 청크 경계에 걸릴 때 오판 방지 */
   quietMs?: number
   enterTimeoutMs?: number
+  /** CLI 진입 시도 횟수 (기본 3). 재부팅 뒤 다시 연결할 때는 1 — 응답 없는 연결은 닫고 새로 연다 */
+  enterAttempts?: number
   /** 명령별 최대 대기 */
   timeouts?: Record<string, number>
   /** 진행 이벤트 최소 간격 */
@@ -70,6 +72,7 @@ export class CliReader {
       onProgress: options.onProgress,
       quietMs: options.quietMs ?? 150,
       enterTimeoutMs: options.enterTimeoutMs ?? 3000,
+      enterAttempts: options.enterAttempts ?? 3,
       progressIntervalMs: options.progressIntervalMs ?? 100,
       timeouts: { ...DEFAULT_TIMEOUTS, ...options.timeouts }
     }
@@ -160,18 +163,23 @@ export class CliReader {
     return this.buf
   }
 
-  /** CLI 모드 진입. 실패 시 1회 재시도 */
+  /** CLI 모드 진입. 응답이 없으면 2번 더 (막 부팅한 기체는 몇 초 동안 '#' 에 답하지 않는다 — SITL 재부팅 직후 실측) */
   async enterCli(): Promise<void> {
-    const done = (s: string) => s.includes('Entering CLI Mode') && endsWithPrompt(s)
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // 이미 CLI 모드인 기체(앞서 읽고 exit 없이 끊음)는 '#' 을 에코만 하고 안내문을 내지 않는다 (SITL·실기체 확인)
+    const alreadyInCli = (s: string) => s.trim() === '#'
+    const done = (s: string) => (s.includes('Entering CLI Mode') && endsWithPrompt(s)) || alreadyInCli(s)
+    for (let attempt = 0; attempt < this.opts.enterAttempts; attempt++) {
       try {
-        await this.run('#', this.opts.enterTimeoutMs, done)
+        const out = await this.run('#', this.opts.enterTimeoutMs, done)
+        // 빈 줄을 보내면 "#" 한 줄이 주석으로 끝나고 프롬프트가 온다 — 그 뒤로는 새로 들어간 것과 같다
+        if (alreadyInCli(out)) await this.run('', this.opts.enterTimeoutMs, endsWithPrompt)
         return
       } catch (e) {
         if (!(e instanceof CliReadError) || e.code !== 'TIMEOUT') throw e
       }
     }
-    throw new CliReadError('CLI_ENTER_FAILED')
+    // 마지막으로 받은 내용 (진단용 — 로그에 남는다)
+    throw new CliReadError('CLI_ENTER_FAILED', `받은 내용 ${JSON.stringify(this.buf.slice(-120))}`)
   }
 
   /** 명령 실행 후 응답 본문(에코 줄과 끝 프롬프트 제외)을 돌려준다 */

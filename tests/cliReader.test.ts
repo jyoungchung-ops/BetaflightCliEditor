@@ -32,7 +32,7 @@ function setup(opts: Partial<FakeFcOptions> = {}, progress?: (p: ReadProgress) =
 const norm = (s: string) => s.replace(/\r/g, '').trim()
 
 describe('명령 화이트리스트', () => {
-  it.each(['#', 'version', 'status', 'diff all', 'dump all', 'get', 'get craft_name', 'get osd_vbat_pos'])('허용: %s', (c) => {
+  it.each(['#', '', 'version', 'status', 'diff all', 'dump all', 'get', 'get craft_name', 'get osd_vbat_pos'])('허용: %s', (c) => {
     expect(isAllowedCommand(c)).toBe(true)
   })
 
@@ -60,7 +60,8 @@ describe('명령 화이트리스트', () => {
     'GET craft_name',
     ' version',
     '##',
-    ''
+    ' ',
+    '\n'
   ])('거부: %j', (c) => {
     expect(isAllowedCommand(c)).toBe(false)
   })
@@ -124,16 +125,23 @@ describe('CLI 읽기 절차', () => {
     expect(responseComplete('version', 'version\n# Betaflight\n# ')).toBe(true)
   })
 
-  it('CLI 진입은 1회 재시도한다', async () => {
-    const { fc, reader } = setup({ ignoreHashes: 1 })
+  it('이미 CLI 모드인 기체(읽고 USB 를 다시 꽂지 않음)에도 들어간다: # 에코 → 빈 줄 → 프롬프트', async () => {
+    const { fc, reader } = setup({ startInCli: true })
     await reader.enterCli()
-    expect(fc.writes).toEqual(['#', '#'])
+    expect(fc.writes).toEqual(['#', '\n'])
+    expect(norm(await reader.exec('version'))).toBe(norm(RESPONSES.version))
   })
 
-  it('두 번 모두 응답이 없으면 CLI_ENTER_FAILED', async () => {
+  it('CLI 진입은 2번까지 다시 시도한다 (막 부팅한 기체)', async () => {
+    const { fc, reader } = setup({ ignoreHashes: 2 })
+    await reader.enterCli()
+    expect(fc.writes).toEqual(['#', '#', '#'])
+  })
+
+  it('세 번 모두 응답이 없으면 CLI_ENTER_FAILED', async () => {
     const { fc, reader } = setup({ ignoreHashes: 5 })
     await expect(reader.enterCli()).rejects.toMatchObject({ code: 'CLI_ENTER_FAILED' })
-    expect(fc.writes).toEqual(['#', '#'])
+    expect(fc.writes).toEqual(['#', '#', '#'])
   })
 
   it('응답이 멈추면 TIMEOUT', async () => {

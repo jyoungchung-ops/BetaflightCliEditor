@@ -6,7 +6,10 @@
  * 'get' (인수 없음): 모든 설정의 값·범위·허용값을 출력하는 읽기 명령 (v2 9절 스키마).
  * cli.c cliGet — 설정을 바꾸지 않는다 (docs/cli-compat.md "v2 0단계").
  */
-const EXACT = new Set(['#', 'version', 'status', 'diff all', 'dump all', 'get'])
+/**
+ * '' (빈 줄): 이미 CLI 모드인 기체에 '#' 을 보낸 뒤 그 줄을 끝내 프롬프트를 받는다. CLI 에서 빈 줄·주석 줄은 아무 동작도 하지 않는다.
+ */
+const EXACT = new Set(['#', '', 'version', 'status', 'diff all', 'dump all', 'get'])
 /** get <이름> — 이름은 설정 키 문자만 (공백·개행·세미콜론 불가) */
 const GET = /^get [a-z0-9_]{1,64}$/
 

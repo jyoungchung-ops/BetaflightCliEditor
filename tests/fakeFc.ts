@@ -14,6 +14,8 @@ export interface FakeFcOptions {
   stallDuring?: { command: string; afterChunks: number }
   /** 쓰기 명령 응답 (writeSession 테스트). 문자열 = 응답 본문, close = 응답 뒤 연결 끊김(재부팅), silent = 응답 없음 */
   handler?: (cmd: string) => string | { text: string; close: true } | { silent: true } | undefined
+  /** 이미 CLI 모드 (앞서 읽고 exit 없이 끊은 기체): '#' 을 에코만 한다 */
+  startInCli?: boolean
 }
 
 export class FakeFc implements CliTransport {
@@ -26,7 +28,9 @@ export class FakeFc implements CliTransport {
   private hashesIgnored = 0
   closed = false
 
-  constructor(private readonly opts: FakeFcOptions) {}
+  constructor(private readonly opts: FakeFcOptions) {
+    this.inCli = Boolean(opts.startInCli)
+  }
 
   onData(cb: (s: string) => void) {
     this.dataCbs.push(cb)
@@ -63,6 +67,11 @@ export class FakeFc implements CliTransport {
     if (ch === '\n') {
       const cmd = this.line.trim()
       this.line = ''
+      // 빈 줄·주석 줄: 프롬프트만
+      if (cmd === '' || cmd.startsWith('#')) {
+        this.stream('\r\n\r\n# ', cmd)
+        return
+      }
       const h = this.opts.handler?.(cmd)
       if (h !== undefined) {
         if (typeof h === 'string') this.stream(`\r\n${h}\r\n\r\n# `, cmd)
