@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Cpu, Eye, FileDown, Home, Pencil, Redo2, RotateCcw, Save, SquarePen, Undo2 } from 'lucide-react'
+import { ChevronDown, Cpu, Eye, RefreshCw, FileDown, Home, Pencil, Redo2, RotateCcw, Save, SquarePen, Undo2 } from 'lucide-react'
 import { saveFileName } from '@shared/files'
 
 interface Props {
@@ -33,6 +33,9 @@ export interface EditBar {
   /** 기체에 쓰기 (쓸 수 없으면 이유) */
   writeBlocked?: string
   onWrite(): void
+  /** 화면 내용(원본 + 편집)으로 기체 맞추기 (쓸 수 없으면 이유) */
+  syncBlocked?: string
+  onSync(): void
 }
 
 export interface ExportMenu {
@@ -134,6 +137,18 @@ function EditControls({ e }: { e: EditBar }) {
             <button type="button" className="btn btn-danger" disabled={Boolean(e.writeBlocked)} title={e.writeBlocked ?? '변경한 값만 기체에 씁니다 (백업 → 전송 → 재검증)'} onClick={e.onWrite}>
               <Cpu size={16} aria-hidden />
               기체에 쓰기
+            </button>
+          )}
+          {e.editing && (
+            <button
+              type="button"
+              className="btn"
+              disabled={Boolean(e.syncBlocked)}
+              title={e.syncBlocked ?? '기체를 읽어 이 화면(저장 파일 + 편집)과 다른 값만 써서 맞춥니다. 펌웨어 빌드가 같아야 합니다'}
+              onClick={e.onSync}
+            >
+              <RefreshCw size={16} aria-hidden />
+              이 내용으로 기체 맞추기
             </button>
           )}
         </>

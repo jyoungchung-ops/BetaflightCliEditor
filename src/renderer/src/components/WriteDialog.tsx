@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { buildSnapshot } from '@shared/cli/parser'
 import type { CraftSnapshot, RawCli } from '@shared/cli/types'
 import { buildCommands } from '@shared/edit/commands'
-import type { Edits } from '@shared/edit/session'
-import { checkBeforeWrite, previewRows, type Mismatch, type PreCheck } from '@shared/edit/writePlan'
+import { effective, type Edits } from '@shared/edit/session'
+import { checkBeforeWrite, previewRows, revertEdits, type Mismatch, type PreCheck } from '@shared/edit/writePlan'
 import type { WriteFailureInfo, WriteProgressEvent, WriteResultInfo } from '@shared/ipc'
 import { TABS } from '@shared/tabs'
 import { usePorts } from '../hooks/usePorts'
@@ -19,6 +19,7 @@ type Step =
   | { kind: 'done'; result: WriteResultInfo }
   | { kind: 'failed'; failure: WriteFailureInfo }
   | { kind: 'verified'; mismatches: Mismatch[]; afterRaw: RawCli; beforeRaw?: RawCli }
+  | { kind: 'same'; skipped: string[] }
 
 interface Props {
   base: CraftSnapshot
@@ -30,6 +31,11 @@ interface Props {
   onRevert(nowRaw: RawCli, beforeRaw: RawCli): void
   /** 되돌리기로 연 창이면 제목에 표시 */
   revert?: boolean
+  /**
+   * 파일 내용으로 기체 맞추기: 쓸 편집을 미리 정하지 않고, 기체를 읽은 뒤 "지금 기체 → 이 파일(원본 + 편집)" 차이로 만든다.
+   * 쓰기 절차·검사는 같다 (펌웨어 빌드·보드가 파일과 같아야 함, defaults 안 씀)
+   */
+  sync?: boolean
 }
 
 const tabLabel = (id: string) => TABS.find((t) => t.id === id)?.label ?? id
@@ -76,7 +82,11 @@ function MismatchTable({ list }: { list: Mismatch[] }) {
   )
 }
 
-export function WriteDialog({ base, edits, onClose, onWritten, onRevert, revert }: Props) {
+export function WriteDialog({ base, edits: givenEdits, onClose, onWritten, onRevert, revert, sync }: Props) {
+  // 맞추기: 기체를 읽은 뒤 계산한 편집 / 그 밖: 화면에서 고친 편집
+  const [plan, setPlan] = useState<{ edits: Edits; skipped: string[] } | null>(null)
+  const target = useMemo(() => (sync ? effective(base, givenEdits) : null), [sync, base, givenEdits])
+  const edits = sync ? (plan?.edits ?? {}) : givenEdits
   const [step, setStep] = useState<Step>({ kind: 'safety' })
   const [props, setProps] = useState(false)
   const [battery, setBattery] = useState(false)
@@ -106,7 +116,21 @@ export function WriteDialog({ base, edits, onClose, onWritten, onRevert, revert 
     const r = await window.bfview.writePrepare(path)
     if (!r.ok) return setStep({ kind: 'failed', failure: r.failure })
     const current = buildSnapshot({ craftName: base.craftName, readAt: new Date().toISOString(), raw: r.value })
-    const check = checkBeforeWrite(base, current, edits)
+    let todo = edits
+    if (target) {
+      const p = revertEdits(current, target)
+      setPlan(p)
+      todo = p.edits
+      if (Object.keys(todo).length === 0) {
+        // 맞출 것이 없어도, 펌웨어·보드가 다르면 "같다"가 아니라 "맞출 수 없다"로 알려 준다
+        const c = checkBeforeWrite(base, current, {})
+        const real = c.blockers.filter((b) => !/편집이 없습니다/.test(b))
+        if (real.length) return setStep({ kind: 'check', current, check: { ...c, blockers: real } })
+        void window.bfview.writeCancel()
+        return setStep({ kind: 'same', skipped: p.skipped })
+      }
+    }
+    const check = checkBeforeWrite(base, current, todo)
     if (check.blockers.length || check.conflicts.length) setStep({ kind: 'check', current, check })
     else setStep({ kind: 'preview', current, check, overwrite: false })
   }
@@ -145,7 +169,8 @@ export function WriteDialog({ base, edits, onClose, onWritten, onRevert, revert 
     <div className="modal-backdrop" role="presentation" onKeyDown={(e) => e.key === 'Escape' && close()}>
       <div className="modal panel write-modal" role="dialog" aria-modal="true" aria-labelledby="write-title">
         <div className="panel-title" id="write-title">
-          {revert ? '백업으로 되돌리기' : '기체에 쓰기'} — {base.craftName} · 변경 {rows.length}개
+          {sync ? '파일 내용으로 기체 맞추기' : revert ? '백업으로 되돌리기' : '기체에 쓰기'} — {base.craftName}
+          {sync && !plan ? '' : ` · 변경 ${rows.length}개`}
         </div>
         <div className="panel-body modal-body">
           {step.kind === 'safety' && (
@@ -173,7 +198,11 @@ export function WriteDialog({ base, edits, onClose, onWritten, onRevert, revert 
                   새로고침
                 </button>
               </div>
-              <p className="muted small">연결해 지금 기체 설정을 다시 읽고, 편집 원본과 같은 기체·펌웨어인지 확인합니다. 이 단계에서는 아무것도 쓰지 않습니다.</p>
+              <p className="muted small">
+                {sync
+                  ? '연결해 지금 기체 설정을 읽고, 이 파일(원본 + 편집)과 다른 값만 찾습니다. 펌웨어 빌드·보드가 파일과 같아야 합니다. 이 단계에서는 아무것도 쓰지 않습니다.'
+                  : '연결해 지금 기체 설정을 다시 읽고, 편집 원본과 같은 기체·펌웨어인지 확인합니다. 이 단계에서는 아무것도 쓰지 않습니다.'}
+              </p>
               <div className="row actions modal-actions">
                 <button type="button" className="btn" onClick={close}>
                   취소
@@ -285,6 +314,12 @@ export function WriteDialog({ base, edits, onClose, onWritten, onRevert, revert 
                   </ul>
                 </div>
               )}
+              {sync && (
+                <p className="muted small">
+                  기체를 이 파일 내용으로 맞추려고 다른 값만 씁니다. LED·VTX 테이블·서보·resource/timer/dma·조정 범위 등 이 앱이 쓰지 않는 설정은 비교하지 않습니다.
+                  {plan && plan.skipped.length > 0 && ` 맞출 수 없어 건너뛴 항목 ${plan.skipped.length}개: ${plan.skipped.slice(0, 8).join(', ')}${plan.skipped.length > 8 ? ' …' : ''}`}
+                </p>
+              )}
               <details>
                 <summary>보낼 명령 원문 ({commands.length}줄)</summary>
                 <pre className="cli-pre">{commands.join('\n')}</pre>
@@ -362,6 +397,19 @@ export function WriteDialog({ base, edits, onClose, onWritten, onRevert, revert 
                     재검증
                   </button>
                 )}
+                <button type="button" className="btn btn-primary" onClick={onClose}>
+                  닫기
+                </button>
+              </div>
+            </>
+          )}
+
+          {step.kind === 'same' && (
+            <>
+              <div className="notice info">기체 설정이 이미 이 파일과 같습니다. 쓸 것이 없습니다.</div>
+              {step.skipped.length > 0 && <p className="muted small">비교할 수 없는 항목 {step.skipped.length}개: {step.skipped.slice(0, 8).join(', ')}</p>}
+              <p className="muted small">기체가 CLI 모드에 남아 있습니다. 쓰지 않을 거라면 USB를 뽑았다 다시 꽂아 주세요.</p>
+              <div className="row actions modal-actions">
                 <button type="button" className="btn btn-primary" onClick={onClose}>
                   닫기
                 </button>

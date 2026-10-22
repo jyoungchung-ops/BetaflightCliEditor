@@ -69,6 +69,7 @@ Betaflight 기체의 CLI 값을 USB로 읽어 Betaflight App과 같은 탭 구�
    - 차단 명령: `isGeneratedCommand` 형식 밖은 send() 에서 막힘. 12절 목록은 `tests/writeSession.test.ts` 가 하나씩 확인
    - 12절 경고: `writeWarning()` (모터·보드 방향·수신기/포트·ARM/BEEPER/FAILSAFE 모드·페일세이프·필터) → 미리보기 표의 주의 칸과 요약
    - 백업으로 되돌리기: `revertEdits(지금, 쓰기 직전)` → 같은 절차(1~9)로 다시. defaults 안 씀. 결과·재검증 화면의 버튼
+   - [이 내용으로 기체 맞추기]: `WriteDialog` 의 `sync` — 기체를 읽은 뒤 `revertEdits(지금 기체, effective(파일 원본, 파일 편집))` 로 편집을 만들어 같은 절차로 씀. 메인에는 base = 파일 원본을 보내므로 펌웨어·보드 검사는 파일 기준
    - SITL 시나리오 6개(되돌리기 포함) × 4개 버전 통과 — 실패하면 출력이 `%TEMP%\sitl-write-<버전>.log`
 7. 패키징·배포 — 완료 (2.0.0 exe 이 PC에서 빌드·실행 확인, README 쓰기 주의사항, `docs/release-notes/v2.0.0.md`)
    - 태그 `v2.0.0`(v2 브랜치) → GitHub Actions 가 빌드해 Release **초안**(본문 = `docs/release-notes/<태그>.md`). 퍼블리시·저장소 이름 변경·실기체 첫 쓰기 테스트는 사용자가 한다

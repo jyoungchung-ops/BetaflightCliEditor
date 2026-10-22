@@ -120,3 +120,32 @@ describe('백업으로 되돌리기', () => {
     expect(revertEdits(base, base).edits).toEqual({})
   })
 })
+
+describe('파일 내용으로 기체 맞추기 (원본 + 편집 → 지금 기체와 다른 값만)', () => {
+  // 파일: 원본 + 이름·레이트 몇 개 편집 / 기체: 파일을 저장한 뒤 다른 값들이 바뀐 상태
+  const fileEdits = apply(base, [
+    ['master.craft_name', 'SYNCED'],
+    [`rate.${base.meta.activeRateProfile}.roll_srate`, '80']
+  ]).edits
+  const target = effective(base, fileEdits)
+  const craftNow = effective(base, edits) // mixedSteps 로 많이 바뀐 기체
+
+  it('맞출 편집 = 기체 → 파일 차이, 충돌·막는 것 없음, 적용하면 파일과 같아진다', () => {
+    const { edits: plan, skipped } = revertEdits(craftNow, target)
+    expect(skipped).toEqual([])
+    expect(plan['master.craft_name']).toMatchObject({ before: 'ROUND TRIP', after: 'SYNCED' })
+    expect(Object.keys(plan).length).toBeGreaterThan(40)
+    expect(checkBeforeWrite(base, craftNow, plan)).toMatchObject({ blockers: [], conflicts: [] })
+    expect(verifyAfterWrite(target, effective(craftNow, plan), {})).toEqual([])
+  })
+
+  it('이미 같으면 맞출 것이 없다', () => {
+    expect(revertEdits(target, target).edits).toEqual({})
+  })
+
+  it('펌웨어 빌드가 다른 기체는 막는다', () => {
+    const other = buildSnapshot({ ...base, raw: { ...base.raw, version: base.raw.version.replace(/\d\d:\d\d:\d\d/, '01:02:03') } })
+    const { edits: plan } = revertEdits(other, target)
+    expect(checkBeforeWrite(base, other, plan).blockers.join()).toMatch(/펌웨어/)
+  })
+})

@@ -68,6 +68,7 @@ export default function App() {
   const [editing, setEditing] = useState(false)
   const [writing, setWriting] = useState(false)
   const [revertMode, setRevertMode] = useState(false)
+  const [syncMode, setSyncMode] = useState(false)
   const [writeKey, setWriteKey] = useState(0)
   const base = loaded?.snap ?? null
   const edits = editState.edits
@@ -284,6 +285,7 @@ export default function App() {
     }
     if (skipped.length) setToast({ kind: 'error', text: `되돌릴 수 없는 항목 ${skipped.length}개: ${skipped.slice(0, 5).join(', ')}` })
     setRevertMode(true)
+    setSyncMode(false)
     setWriteKey((k) => k + 1) // 창을 처음 단계부터 다시
   }
 
@@ -336,7 +338,23 @@ export default function App() {
                       : !window.bfview
                         ? '앱에서만 쓸 수 있습니다'
                         : undefined,
-                onWrite: () => setWriting(true),
+                onWrite: () => {
+                  setSyncMode(false)
+                  setWriting(true)
+                },
+                syncBlocked: !canEdit
+                  ? '범위 정보가 없어 쓸 수 없습니다'
+                  : errorCount > 0
+                    ? `오류 ${errorCount}개를 먼저 고치세요`
+                    : !window.bfview
+                      ? '앱에서만 쓸 수 있습니다'
+                      : undefined,
+                onSync: () => {
+                  setSyncMode(true)
+                  setRevertMode(false)
+                  setWriteKey((k) => k + 1)
+                  setWriting(true)
+                },
                 onRevertAll: () => {
                   if (window.confirm(`편집 ${editCount}개를 모두 원래 값으로 되돌릴까요?`)) setEditState(revertAll)
                 }
@@ -385,9 +403,11 @@ export default function App() {
           base={base}
           edits={edits}
           revert={revertMode}
+          sync={syncMode}
           onClose={() => {
             setWriting(false)
             setRevertMode(false)
+            setSyncMode(false)
           }}
           onWritten={(raw) => written(raw)}
           onRevert={startRevert}

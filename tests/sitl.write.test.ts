@@ -12,8 +12,8 @@ import type { CliTransport } from '../src/main/serial/transport'
 import { readClean, WriteFlow, WriteFlowError, type WriteDeps } from '../src/main/serial/writeFlow'
 import { buildSnapshot } from '../src/shared/cli/parser'
 import type { CraftSnapshot, RawCli } from '../src/shared/cli/types'
-import { valueOf, type Edits } from '../src/shared/edit/session'
-import { revertEdits } from '../src/shared/edit/writePlan'
+import { effective, valueOf, type Edits } from '../src/shared/edit/session'
+import { revertEdits, verifyAfterWrite } from '../src/shared/edit/writePlan'
 import { apply, loadSitl, mixedSteps } from './editMix'
 
 const TAG = process.env.SITL_TAG
@@ -165,6 +165,32 @@ describe.runIf(Boolean(TAG))(`SITL ${TAG}: 기체에 쓰기 (SPEC 11절)`, () =>
     expect(r).toMatchObject({ status: 'ok', rebooted: true })
     expect(readFileSync(r.log, 'utf8')).toMatch(/save 응답 전에 연결 끊김/)
   }, 120_000)
+
+  it('파일 내용으로 기체 맞추기: 저장 뒤 기체가 바뀌었어도 파일(원본 + 편집)과 같아진다', async () => {
+    await freshSitl()
+    // 1) 기체를 다른 값들로 바꿔 둔다 (파일을 저장한 뒤 Betaflight App 에서 고친 상황)
+    let flow = new WriteFlow(deps())
+    await flow.prepare(TARGET)
+    expect((await flow.execute({ base: baseOf(base), edits: editList(edits), overwriteConflicts: false })).status).toBe('ok')
+    await powercycle()
+
+    // 2) 파일 = 원본 + 편집 두 개. 화면과 같은 방식으로 맞출 편집을 만든다
+    const fileEdits = apply(base, [
+      ['master.craft_name', 'SYNCED'],
+      [`rate.${base.meta.activeRateProfile}.roll_srate`, '80']
+    ]).edits
+    const target = effective(base, fileEdits)
+    flow = new WriteFlow(deps())
+    const now = buildSnapshot({ craftName: base.craftName, readAt: '', raw: await flow.prepare(TARGET) })
+    const { edits: plan, skipped } = revertEdits(now, target)
+    expect(skipped).toEqual([])
+    const r = await flow.execute({ base: baseOf(base), edits: editList(plan), overwriteConflicts: false })
+    expect(r.status).toBe('ok')
+
+    // 3) 다시 켜서 읽으면 파일과 같다
+    await powercycle()
+    expect(verifyAfterWrite(target, await readNow(), {})).toEqual([])
+  }, 240_000)
 
   it('백업으로 되돌리기: 쓴 뒤 차이만 같은 절차로 되돌리면 원래 설정이 된다 (defaults 안 씀)', async () => {
     await freshSitl()
