@@ -1,6 +1,6 @@
 # Betaflight CLI Editor
 
-USB로 연결한 Betaflight 기체의 CLI 설정을 읽어 Betaflight App(구 Configurator)과 비슷한 탭 화면으로 보여 주고, 화면에서 고친 값을 **변경분만** 기체에 쓰는 Windows 앱입니다. v1의 이름은 **FC CLI Viewer**(0.1.x, 읽기 전용)였습니다.
+USB로 연결한 Betaflight 기체의 CLI 설정을 읽어 Betaflight App(구 Configurator)과 비슷한 탭 화면으로 보여 주고, 화면에서 고친 값을 **변경분만** 기체에 쓰는 Windows 앱입니다. v1의 이름은 **FC CLI Viewer**(0.1.x, 읽기 전용)였고, [BetaflightCliViewer](https://github.com/jyoungchung-ops/BetaflightCliViewer) 저장소에 따로 있습니다.
 
 **Betaflight 공식 프로그램이 아닙니다.** 이름에 "Betaflight"가 들어가지만 Betaflight 프로젝트와 관련이 없는 개인 도구이며, Betaflight 로고는 쓰지 않습니다.
 
